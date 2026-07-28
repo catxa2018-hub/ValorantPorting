@@ -17,8 +17,6 @@
         <PackageReference Include="DiscordRichPresence" Version="1.0.175"/>
 
         <!-- ADDED -->
-        <PackageReference Include="DotNetZip" Version="1.16.0" />
-
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4"/>
         <PackageReference Include="Ookii.Dialogs.Wpf" Version="5.0.1"/>
         <PackageReference Include="RestSharp" Version="108.0.3-alpha.0.5"/>
