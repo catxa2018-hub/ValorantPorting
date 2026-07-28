@@ -83,12 +83,32 @@ public class AssetHandlerData
     {
         if (HasStarted) return;
         HasStarted = true;
+
+        var cue4ParseVm = AppVM.CUE4ParseVM;
+        if (cue4ParseVm is null || cue4ParseVm.AssetDataBuffers is null || cue4ParseVm.AssetDataBuffers.Count == 0)
+        {
+            AppLog.Warning("Asset handler could not initialize because no asset data buffers were available.");
+            return;
+        }
+
+        if (TargetCollection is null || ClassNames is null || IconGetter is null)
+        {
+            AppLog.Warning("Asset handler could not initialize because one or more required configuration values were missing.");
+            return;
+        }
+
         var items = new List<FAssetData>();
-        foreach (var variable in
-                 AppVM.CUE4ParseVM.AssetRegistry.PreallocatedAssetDataBuffers) //search for Classes in AssetRegistry
-        foreach (var tagsAndValue in variable.TagsAndValues)
-            if (ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key.PlainText == "PrimaryAssetType")
-                items.Add(variable);
+        foreach (var variable in cue4ParseVm.AssetDataBuffers)
+        {
+            if (variable is null || variable.TagsAndValues is null) continue;
+
+            foreach (var tagsAndValue in variable.TagsAndValues)
+            {
+                if (ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key?.PlainText == "PrimaryAssetType")
+                    items.Add(variable);
+            }
+        }
+
         await Parallel.ForEachAsync(items, async (data, token) => //load if found
         {
             await DoLoad(data);

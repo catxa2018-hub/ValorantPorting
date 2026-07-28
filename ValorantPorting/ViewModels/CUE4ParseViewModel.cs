@@ -78,6 +78,10 @@ public class CUE4ParseViewModel : ObservableObject
             AssetRegistry = new FAssetRegistryState(assetArchive);
             AssetDataBuffers.AddRange(AssetRegistry.PreallocatedAssetDataBuffers);
         }
+        else
+        {
+            AppLog.Warning("AssetRegistry.bin could not be loaded, so the asset handler will not have registry data to initialize.");
+        }
     }
 
     private async Task InitializeKeys()
