@@ -457,7 +457,7 @@ public static class ExportHelpers
                         var path = GetExportPath(obj, "psk");
                         if (File.Exists(path)) return;
 
-                        var exporter = new MeshExporter(skeletalMesh, ExportOptions, false);
+                        var exporter = new MeshExporter(skeletalMesh, ExportOptions);
                         string SavedFilePath;
                         exporter.TryWriteToDir(App.AssetsFolder, out _, out SavedFilePath);
                         break;
@@ -468,7 +468,7 @@ public static class ExportHelpers
                         var path = GetExportPath(obj, "pskx");
                         if (File.Exists(path)) return;
 
-                        var exporter = new MeshExporter(staticMesh, ExportOptions, false);
+                        var exporter = new MeshExporter(staticMesh, ExportOptions);
                         string SavedFilePath;
                         exporter.TryWriteToDir(App.AssetsFolder, out _, out SavedFilePath);
                         break;
