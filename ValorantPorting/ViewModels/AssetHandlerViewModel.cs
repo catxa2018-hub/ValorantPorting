@@ -107,12 +107,22 @@ public class AssetHandlerData
         actualAsset = await AppVM.CUE4ParseVM.Provider.TryLoadObjectAsync(firstTag);
         if (actualAsset == null) return;
 
-        var uBlueprintGeneratedClass = actualAsset as UBlueprintGeneratedClass;
-        actualAsset = uBlueprintGeneratedClass.ClassDefaultObject.Load();
+        if (actualAsset is not UBlueprintGeneratedClass uBlueprintGeneratedClass)
+            return;
+
+        var classDefaultObject = uBlueprintGeneratedClass.ClassDefaultObject?.Load();
+        if (classDefaultObject == null) return;
+
+        actualAsset = classDefaultObject;
         var mainA = actualAsset;
 
-        if (actualAsset.TryGetValue(out UBlueprintGeneratedClass uiObject, "UIData"))
-            uiAsset = uiObject.ClassDefaultObject.Load();
+        if (actualAsset.TryGetValue(out UBlueprintGeneratedClass? uiObject, "UIData"))
+        {
+            var uiDefaultObject = uiObject?.ClassDefaultObject?.Load();
+            if (uiDefaultObject != null)
+                uiAsset = uiDefaultObject;
+        }
+
         // switch on asset type
         var loadable = "None";
         switch (AssetType)
@@ -121,19 +131,52 @@ public class AssetHandlerData
                 loadable = "Character";
                 break;
             case EAssetType.Weapon:
-                actualAsset.TryGetValue<UBlueprintGeneratedClass[]>(out var bGg, "Levels");
-                actualAsset = bGg[0].ClassDefaultObject.Load();
+            {
+                if (actualAsset.TryGetValue<UBlueprintGeneratedClass[]>(out var bGg, "Levels") &&
+                    bGg is { Length: > 0 } &&
+                    bGg[0]?.ClassDefaultObject?.Load() is { } weaponDefaultObject)
+                {
+                    actualAsset = weaponDefaultObject;
+                }
+                else
+                {
+                    return;
+                }
+
                 loadable = "None";
                 break;
+            }
             case EAssetType.GunBuddy:
-                actualAsset.TryGetValue<UBlueprintGeneratedClass[]>(out var bGb, "Levels");
-                actualAsset = bGb[0].ClassDefaultObject.Load();
+            {
+                if (actualAsset.TryGetValue<UBlueprintGeneratedClass[]>(out var bGb, "Levels") &&
+                    bGb is { Length: > 0 } &&
+                    bGb[0]?.ClassDefaultObject?.Load() is { } buddyDefaultObject)
+                {
+                    actualAsset = buddyDefaultObject;
+                }
+                else
+                {
+                    return;
+                }
+
                 loadable = "CharmAttachment";
                 break;
+            }
         }
 
-        if (actualAsset.TryGetValue(out UBlueprintGeneratedClass blueprintObject, loadable))
-            actualAsset = blueprintObject.ClassDefaultObject.Load();
+        if (actualAsset.TryGetValue(out UBlueprintGeneratedClass? blueprintObject, loadable))
+        {
+            var blueprintDefaultObject = blueprintObject?.ClassDefaultObject?.Load();
+            if (blueprintDefaultObject != null)
+                actualAsset = blueprintDefaultObject;
+            else
+                return;
+        }
+        else
+        {
+            return;
+        }
+
         var previewImage = IconGetter(uiAsset);
         if (previewImage is null) return;
         await Application.Current.Dispatcher.InvokeAsync(
