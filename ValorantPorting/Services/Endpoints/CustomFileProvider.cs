@@ -73,6 +73,11 @@ public abstract class CustomFileProvider : AbstractVfsFileProvider
         _files.AddFiles(IterateFiles(info, _searchOption));
     }
 
+    public override void Initialize()
+    {
+        Initialize(string.Empty, null, null);
+    }
+
     /// <summary>
     ///     Used to initialize individual local files, and all streamed files.
     /// </summary>
