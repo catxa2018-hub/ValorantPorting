@@ -104,7 +104,7 @@ public class AssetHandlerData
 
             foreach (var tagsAndValue in variable.TagsAndValues)
             {
-                if (ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key?.PlainText == "PrimaryAssetType")
+                if (ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key.PlainText == "PrimaryAssetType")
                     items.Add(variable);
             }
         }
