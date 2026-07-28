@@ -54,6 +54,14 @@ public abstract class CustomFileProvider : AbstractVfsFileProvider
         _searchOption = searchOption;
     }
 
+    public override void Initialize()
+    {
+        InitializeLocal();
+    }
+    
+
+
+
     /// <summary>
     ///     Initialize all local files in the directory
     /// </summary>
