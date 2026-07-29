@@ -126,7 +126,29 @@ public partial class MainViewModel : ObservableObject
     {
         var loadTimez = new Stopwatch();
         loadTimez.Start();
-        var data = await ExportData.Create(CurrentAsset.Asset, CurrentAssetType, GetSelectedStyles());
+
+        const int maxAttempts = 5;
+        Export.ExportData data = null;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                data = await ExportData.Create(CurrentAsset.Asset, CurrentAssetType, GetSelectedStyles());
+                break;
+            }
+            catch (Exception ex) when (attempt < maxAttempts && ex.ToString().Contains("being used by another process"))
+            {
+                AppLog.Warning($"Export attempt {attempt} hit a file-lock race, retrying...");
+                await Task.Delay(250);
+            }
+        }
+
+        if (data is null)
+        {
+            AppLog.Warning("Export failed after multiple retries.");
+            return;
+        }
+
         data.Name = currentAsset.DisplayName;
         var reorient = CurrentAssetType != EAssetType.Weapon;
         BlenderService.Send(data, new BlenderExportSettings
