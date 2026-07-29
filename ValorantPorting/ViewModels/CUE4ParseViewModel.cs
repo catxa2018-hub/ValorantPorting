@@ -45,13 +45,18 @@ public class CUE4ParseViewModel : ObservableObject
         if (Provider is null) return;
 
         var oodlePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, CUE4Parse.Compression.OodleHelper.OODLE_DLL_NAME);
+        if (!File.Exists(oodlePath))
+        {
+            AppLog.Information("Oodle DLL not found locally, attempting to download it automatically...");
+            CUE4Parse.Compression.OodleHelper.DownloadOodleDll(oodlePath);
+        }
         if (File.Exists(oodlePath))
         {
             CUE4Parse.Compression.OodleHelper.Initialize(oodlePath);
         }
         else
         {
-            AppLog.Warning($"Oodle DLL not found at \"{oodlePath}\". Compressed assets will fail to load.");
+            AppLog.Warning($"Oodle DLL could not be found or downloaded to \"{oodlePath}\". Compressed assets will fail to load.");
         }
         await InitializeProvider();
         await InitializeKeys();
