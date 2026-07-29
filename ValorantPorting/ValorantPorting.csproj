@@ -31,7 +31,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Content Include="Mappings\VALORANT_13_00_zs.usmap">
+        <Content Include="Mappings\*.usmap">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
     </ItemGroup>

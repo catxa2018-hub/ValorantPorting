@@ -28,8 +28,18 @@ public class CUE4ParseViewModel : ObservableObject
     // UE5 strips reflection data from the paks, so CUE4Parse can no longer
     // infer struct layouts on its own the way it could under UE4 - it needs
     // this file to know how to walk each UStruct's properties.
-    private static readonly string MappingsPath =
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Mappings", "VALORANT_13_00_zs.usmap");
+    private static readonly string MappingsPath = FindMappingsFile();
+
+    private static string FindMappingsFile()
+    {
+        var mappingsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Mappings");
+        if (Directory.Exists(mappingsDir))
+        {
+            var usmapFiles = Directory.GetFiles(mappingsDir, "*.usmap");
+            if (usmapFiles.Length > 0) return usmapFiles[0];
+        }
+        return Path.Combine(mappingsDir, "VALORANT_13_00_zs.usmap");
+    }
     public readonly List<FAssetData> AssetDataBuffers = new();
     public readonly ValorantPortingFileProvider Provider;
 
