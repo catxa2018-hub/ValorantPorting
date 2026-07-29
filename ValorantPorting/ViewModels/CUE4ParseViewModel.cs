@@ -72,7 +72,7 @@ public class CUE4ParseViewModel : ObservableObject
 
         Provider.LoadVirtualPaths();
 
-        var assetArchive = await Provider.TryCreateReaderAsync("ShooterGame/AssetRegistry.bin");
+        Provider.TryCreateReader("ShooterGame/AssetRegistry.bin", out var assetArchive);
         if (assetArchive is not null)
         {
             AssetRegistry = new FAssetRegistryState(assetArchive);
