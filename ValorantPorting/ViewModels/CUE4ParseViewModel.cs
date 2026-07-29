@@ -67,6 +67,16 @@ public class CUE4ParseViewModel : ObservableObject
             Provider.MappingsContainer = new FileUsmapTypeMappingsProvider(MappingsPath);
         }
 
+        var oodlePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, CUE4Parse.Compression.OodleHelper.OODLE_DLL_NAME);
+        if (File.Exists(oodlePath))
+        {
+            CUE4Parse.Compression.OodleHelper.Initialize(oodlePath);
+        }
+        else
+        {
+            AppLog.Warning($"Oodle DLL not found at \"{oodlePath}\". Compressed assets will fail to load.");
+        }
+
         await InitializeProvider();
         await InitializeKeys();
 
