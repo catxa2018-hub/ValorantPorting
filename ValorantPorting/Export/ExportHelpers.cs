@@ -72,7 +72,7 @@ public static class ExportHelpers
         //CS Mesh
         if (AppVM.MainVM.CurrentAsset.MainAsset.TryGetValue(out UObject characterSelectFxc, "CharacterSelectFXC"))
         {
-            var exports = AppVM.CUE4ParseVM.Provider.LoadAllObjects(characterSelectFxc.GetPathName().Substring(0, characterSelectFxc.GetPathName().LastIndexOf(".")));
+            var exports = AppVM.CUE4ParseVM.Provider.LoadPackageObjects(characterSelectFxc.GetPathName().Substring(0, characterSelectFxc.GetPathName().LastIndexOf(".")));
             foreach (var export in exports)
             {
                 if (export.ExportType == "SkeletalMeshComponent" && export.Name == "SkeletalMesh_GEN_VARIABLE") components.Add(export);
@@ -229,7 +229,7 @@ public static class ExportHelpers
             var classDefaultObject = equippable.ClassDefaultObject.Load();
             if (classDefaultObject.TryGetValue(out UObject localEquippable, "Equippable"))
             {
-                var mainObjectExports = AppVM.CUE4ParseVM.Provider.LoadAllObjects(localEquippable.GetPathName().Substring(0, localEquippable.GetPathName().LastIndexOf(".")));
+                var mainObjectExports = AppVM.CUE4ParseVM.Provider.LoadPackageObjects(localEquippable.GetPathName().Substring(0, localEquippable.GetPathName().LastIndexOf(".")));
                 foreach (var export in mainObjectExports)
                     if (export.Name.Contains("Magazine_1P"))
                         return export.Get<UStaticMesh>("StaticMesh");
