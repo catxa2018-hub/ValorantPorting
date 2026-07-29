@@ -47,8 +47,13 @@ public class CUE4ParseViewModel : ObservableObject
         var oodlePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, CUE4Parse.Compression.OodleHelper.OODLE_DLL_NAME);
         if (!File.Exists(oodlePath))
         {
-            AppLog.Information("Oodle DLL not found locally, attempting to download it automatically...");
-            CUE4Parse.Compression.OodleHelper.DownloadOodleDll(oodlePath);
+            AppLog.Information("Oodle DLL not found locally, downloading a known-good copy from GitHub...");
+            using var oodleHttpClient = new System.Net.Http.HttpClient();
+            var downloaded = CUE4Parse.Compression.OodleHelper.DownloadOodleDllFromOodleUEAsync(oodleHttpClient, oodlePath).GetAwaiter().GetResult();
+            if (!downloaded)
+            {
+                AppLog.Warning("Automatic Oodle download from GitHub failed.");
+            }
         }
         if (File.Exists(oodlePath))
         {
