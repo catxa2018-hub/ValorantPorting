@@ -124,7 +124,7 @@ public class AssetHandlerData
 
         if (firstTag.Contains("NPE") || firstTag.Contains("Random")) return;
 
-        actualAsset = await AppVM.CUE4ParseVM.Provider.TryLoadObjectAsync(firstTag);
+        actualAsset = await AppVM.CUE4ParseVM.Provider.SafeLoadPackageObjectAsync(firstTag);
         if (actualAsset == null) return;
 
         if (actualAsset is not UBlueprintGeneratedClass uBlueprintGeneratedClass)
