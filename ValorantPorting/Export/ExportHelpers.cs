@@ -392,25 +392,34 @@ public static class ExportHelpers
         for (var i = 0; i < overrides.Length; i++)
         {
             var material = overrides[i];
-            var exportMaterial = new ExportMaterial
-            {
-                MaterialName = material.Name,
-                SlotIndex = i,
-                MaterialNameToSwap = material.GetOrDefault<FSoftObjectPath>("MaterialToSwap").AssetPathName.PlainText
-                    .SubstringAfterLast(".")
-            };
+            if (material is null) continue;
 
-            if (material is UMaterialInstanceConstant materialInstance)
+            try
             {
-                var (textures, scalars, vectors) = MaterialParameters(materialInstance);
-                exportMaterial.Textures = textures;
-                exportMaterial.Scalars = scalars;
-                exportMaterial.Vectors = vectors;
-                if(material.Parent != null)
-                    exportMaterial.ParentName = material.Parent.Name;
+                var swapPath = material.GetOrDefault<FSoftObjectPath>("MaterialToSwap").AssetPathName.PlainText;
+                var exportMaterial = new ExportMaterial
+                {
+                    MaterialName = material.Name,
+                    SlotIndex = i,
+                    MaterialNameToSwap = string.IsNullOrEmpty(swapPath) ? string.Empty : swapPath.SubstringAfterLast(".")
+                };
+
+                if (material is UMaterialInstanceConstant materialInstance)
+                {
+                    var (textures, scalars, vectors) = MaterialParameters(materialInstance);
+                    exportMaterial.Textures = textures;
+                    exportMaterial.Scalars = scalars;
+                    exportMaterial.Vectors = vectors;
+                    if (material.Parent != null)
+                        exportMaterial.ParentName = material.Parent.Name;
+                }
+
+                exportMaterials.Add(exportMaterial);
             }
-
-            exportMaterials.Add(exportMaterial);
+            catch (Exception ex)
+            {
+                AppLog.Warning($"Skipped a material override due to an error: {ex.Message}");
+            }
         }
     }
 
