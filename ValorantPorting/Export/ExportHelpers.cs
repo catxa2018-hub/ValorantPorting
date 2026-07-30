@@ -242,8 +242,8 @@ public static class ExportHelpers
             {
                 var mainObjectExports = AppVM.CUE4ParseVM.Provider.LoadPackageObjects(localEquippable.GetPathName().Substring(0, localEquippable.GetPathName().LastIndexOf(".")));
                 foreach (var export in mainObjectExports)
-                    if (export.Name.Contains("Magazine_1P"))
-                        return export.Get<UStaticMesh>("StaticMesh");
+                    if (export.Name.Contains("Magazine_1P") && export.TryGetValue(out UStaticMesh staticMesh, "StaticMesh"))
+                        return staticMesh;
             }
         }
         return null;
