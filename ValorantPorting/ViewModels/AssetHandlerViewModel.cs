@@ -225,17 +225,20 @@ public class AssetHandlerData
             }
         }
 
-        if (actualAsset.TryGetValue(out UBlueprintGeneratedClass? blueprintObject, loadable))
+        if (loadable != "None")
         {
-            var blueprintDefaultObject = blueprintObject?.ClassDefaultObject?.Load();
-            if (blueprintDefaultObject != null)
-                actualAsset = blueprintDefaultObject;
+            if (actualAsset.TryGetValue(out UBlueprintGeneratedClass? blueprintObject, loadable))
+            {
+                var blueprintDefaultObject = blueprintObject?.ClassDefaultObject?.Load();
+                if (blueprintDefaultObject != null)
+                    actualAsset = blueprintDefaultObject;
+                else
+                    return;
+            }
             else
+            {
                 return;
-        }
-        else
-        {
-            return;
+            }
         }
 
         var previewImage = IconGetter(uiAsset);
