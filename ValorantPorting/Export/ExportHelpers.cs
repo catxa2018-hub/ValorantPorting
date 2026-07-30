@@ -381,6 +381,7 @@ public static class ExportHelpers
 
     public static void OverrideMaterials(UMaterialInstanceConstant[] overrides, List<ExportMaterial> exportMaterials)
     {
+        if (overrides is null) return;
         for (var i = 0; i < overrides.Length; i++)
         {
             var material = overrides[i];
