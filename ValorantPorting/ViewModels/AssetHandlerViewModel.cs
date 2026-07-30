@@ -185,17 +185,25 @@ public class AssetHandlerData
                 break;
             case EAssetType.Weapon:
             {
-                if (actualAsset.TryGetValue<UBlueprintGeneratedClass[]>(out var bGg, "Levels") &&
-                    bGg is { Length: > 0 } &&
-                    bGg[0]?.ClassDefaultObject?.Load() is { } weaponDefaultObject)
+                var hasLevels = actualAsset.TryGetValue<UBlueprintGeneratedClass[]>(out var bGg, "Levels");
+                if (!hasLevels)
                 {
-                    actualAsset = weaponDefaultObject;
+                    AppLog.Warning($"[Weapon] No 'Levels' property found for: {firstTag}");
+                    return;
                 }
-                else
+                if (bGg is not { Length: > 0 })
                 {
+                    AppLog.Warning($"[Weapon] 'Levels' property was empty for: {firstTag}");
+                    return;
+                }
+                var weaponDefaultObject = bGg[0]?.ClassDefaultObject?.Load();
+                if (weaponDefaultObject is null)
+                {
+                    AppLog.Warning($"[Weapon] Levels[0].ClassDefaultObject.Load() returned null for: {firstTag}");
                     return;
                 }
 
+                actualAsset = weaponDefaultObject;
                 loadable = "None";
                 break;
             }
