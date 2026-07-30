@@ -218,14 +218,15 @@ public static class ExportHelpers
     public static USkeletalMesh GetBaseWeapon()
     {
         var mainAsset = AppVM.MainVM.CurrentAsset.MainAsset;
-        if (mainAsset.TryGetValue(out UBlueprintGeneratedClass equippable, "Equippable")) ;
+        if (mainAsset.TryGetValue(out UBlueprintGeneratedClass equippable, "Equippable"))
         {
             var classDefaultObject = equippable.ClassDefaultObject.Load();
             if (classDefaultObject.TryGetValue(out UBlueprintGeneratedClass localEqippable, "Equippable"))
             {
                 var loadedEquippable = localEqippable.ClassDefaultObject.Load();
-                if (loadedEquippable.TryGetValue(out UObject objectReturn, "Mesh1P"))
-                    return objectReturn.Get<USkeletalMesh>("SkeletalMesh");
+                if (loadedEquippable.TryGetValue(out UObject objectReturn, "Mesh1P") &&
+                    objectReturn.TryGetValue(out USkeletalMesh skeletalMesh, "SkeletalMesh"))
+                    return skeletalMesh;
             }
         }
         return null;
