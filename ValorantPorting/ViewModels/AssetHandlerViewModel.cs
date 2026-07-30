@@ -118,6 +118,8 @@ public class AssetHandlerData
             AppLog.Warning($"No items found for {string.Join(", ", ClassNames)}. Available PrimaryAssetType values: {string.Join(", ", seenTypes)}");
         }
 
+        AppLog.Information($"{AssetType} handler found {items.Count} matching items.");
+
         await Parallel.ForEachAsync(items, async (data, token) => //load if found
         {
             await DoLoad(data);
