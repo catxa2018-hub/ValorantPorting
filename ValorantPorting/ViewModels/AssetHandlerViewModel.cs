@@ -98,15 +98,24 @@ public class AssetHandlerData
         }
 
         var items = new List<FAssetData>();
+        var seenTypes = new HashSet<string>();
         foreach (var variable in cue4ParseVm.AssetDataBuffers)
         {
             if (variable is null || variable.TagsAndValues is null) continue;
 
             foreach (var tagsAndValue in variable.TagsAndValues)
             {
+                if (tagsAndValue.Key.PlainText == "PrimaryAssetType")
+                    seenTypes.Add(tagsAndValue.Value);
+
                 if (ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key.PlainText == "PrimaryAssetType")
                     items.Add(variable);
             }
+        }
+
+        if (items.Count == 0)
+        {
+            AppLog.Warning($"No items found for {string.Join(", ", ClassNames)}. Available PrimaryAssetType values: {string.Join(", ", seenTypes)}");
         }
 
         await Parallel.ForEachAsync(items, async (data, token) => //load if found
