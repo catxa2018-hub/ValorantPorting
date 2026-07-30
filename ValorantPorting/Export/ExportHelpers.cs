@@ -126,7 +126,14 @@ public static class ExportHelpers
         //handle style materials for mag mesh
         var handledStyleMag = style != null ? HandleStyle(style) : null;
         if (handledStyleMag != null)
-            OverrideMaterials(handledStyleMag.GetOrDefault("1pMagazine MaterialOverrides", Array.Empty<UMaterialInstanceConstant>()), exportParts.Last().StyleMaterials);
+        {
+            var magOverrides = handledStyleMag.GetOrDefault("3pMagazineMaterial Overrides", Array.Empty<UMaterialInstanceConstant>());
+            if (magOverrides.Length == 0)
+                magOverrides = handledStyleMag.GetOrDefault("1pMagazine MaterialOverrides", Array.Empty<UMaterialInstanceConstant>());
+            if (magOverrides.Length == 0 && handledStyleGun != null)
+                magOverrides = handledStyleGun.GetOrDefault("3p Material Overrides", Array.Empty<UMaterialInstanceConstant>());
+            OverrideMaterials(magOverrides, exportParts.Last().StyleMaterials);
+        }
 
         //attach mag to gun body
         var attachMag = new ExportAttatchment();
