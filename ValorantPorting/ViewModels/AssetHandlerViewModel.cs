@@ -135,10 +135,18 @@ public class AssetHandlerData
 
         if (firstTag.Contains("NPE") || firstTag.Contains("Random")) return;
 
-        actualAsset = await AppVM.CUE4ParseVM.Provider.SafeLoadPackageObjectAsync(firstTag);
+        try
+        {
+            actualAsset = AppVM.CUE4ParseVM.Provider.LoadPackageObject(firstTag);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warning($"[{AssetType}] LoadPackageObject THREW for: {firstTag}\n{ex}");
+            return;
+        }
         if (actualAsset == null)
         {
-            AppLog.Warning($"[{AssetType}] SafeLoadPackageObjectAsync returned null for: {firstTag}");
+            AppLog.Warning($"[{AssetType}] LoadPackageObject returned null for: {firstTag}");
             return;
         }
 
