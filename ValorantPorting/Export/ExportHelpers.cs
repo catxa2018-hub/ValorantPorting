@@ -18,6 +18,7 @@ using CUE4Parse.UE4.Objects.Engine;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.Utils;
 using SkiaSharp;
+using ValorantPorting.AppUtils;
 
 namespace ValorantPorting.Export;
 
