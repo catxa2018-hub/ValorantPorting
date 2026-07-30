@@ -139,16 +139,19 @@ public class AssetHandlerData
         {
             actualAsset = AppVM.CUE4ParseVM.Provider.LoadPackageObject(firstTag);
         }
-        catch (Exception ex)
+        catch
         {
-            AppLog.Warning($"[{AssetType}] LoadPackageObject THREW for: {firstTag}\n{ex}");
-            return;
+            try
+            {
+                actualAsset = AppVM.CUE4ParseVM.Provider.LoadPackageObject(firstTag + "_C");
+            }
+            catch (Exception ex2)
+            {
+                AppLog.Warning($"[{AssetType}] LoadPackageObject failed even with _C fallback for: {firstTag}\n{ex2}");
+                return;
+            }
         }
-        if (actualAsset == null)
-        {
-            AppLog.Warning($"[{AssetType}] LoadPackageObject returned null for: {firstTag}");
-            return;
-        }
+        if (actualAsset == null) return;
 
         if (actualAsset is not UBlueprintGeneratedClass uBlueprintGeneratedClass)
         {
