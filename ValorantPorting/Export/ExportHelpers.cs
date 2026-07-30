@@ -107,9 +107,10 @@ public static class ExportHelpers
             if (levelTuple.Item2 != null) OverrideMaterials(levelTuple.Item2, exportParts.Last().OverrideMaterials);
         }
         //handle style materials for gun mesh
-        if (style != null && HandleStyle(style) != null)
+        var handledStyleGun = style != null ? HandleStyle(style) : null;
+        if (handledStyleGun != null)
             //get 3P overwrites for 1P gun because riot games ;-;
-            OverrideMaterials(HandleStyle(style).GetOrDefault("3p Material Overrides", Array.Empty<UMaterialInstanceConstant>()), exportParts.Last().StyleMaterials);
+            OverrideMaterials(handledStyleGun.GetOrDefault("3p Material Overrides", Array.Empty<UMaterialInstanceConstant>()), exportParts.Last().StyleMaterials);
         //mag mesh
         if (levelTuple.Item4 != null)
         {
@@ -123,8 +124,9 @@ public static class ExportHelpers
         }
 
         //handle style materials for mag mesh
-        if (style != null && HandleStyle(style) != null)
-            OverrideMaterials(HandleStyle(style).GetOrDefault("1pMagazine MaterialOverrides", Array.Empty<UMaterialInstanceConstant>()), exportParts.Last().StyleMaterials);
+        var handledStyleMag = style != null ? HandleStyle(style) : null;
+        if (handledStyleMag != null)
+            OverrideMaterials(handledStyleMag.GetOrDefault("1pMagazine MaterialOverrides", Array.Empty<UMaterialInstanceConstant>()), exportParts.Last().StyleMaterials);
 
         //attach mag to gun body
         var attachMag = new ExportAttatchment();
@@ -152,8 +154,9 @@ public static class ExportHelpers
                     string[] matNames = { "3pMaterialOverrides", "1p MaterialOverrides" };
                     foreach (var matName in matNames)
                     {
-                        if (GetStyleAttatchmentMats(style, matName) != null)
-                            OverrideMaterials(GetStyleAttatchmentMats(style, matName), exportParts.Last().StyleMaterials);
+                        var styleAttachmentMats = GetStyleAttatchmentMats(style, matName);
+                        if (styleAttachmentMats != null)
+                            OverrideMaterials(styleAttachmentMats, exportParts.Last().StyleMaterials);
                     }
                 }
             }
