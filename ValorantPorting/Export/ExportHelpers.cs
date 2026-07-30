@@ -114,12 +114,12 @@ public static class ExportHelpers
         if (levelTuple.Item4 != null)
         {
             SMesh(levelTuple.Item4, exportParts);
-            if (levelTuple.Item3 != null) OverrideMaterials(levelTuple.Item2, exportParts.Last().OverrideMaterials);
+            if (levelTuple.Item2 != null) OverrideMaterials(levelTuple.Item2, exportParts.Last().OverrideMaterials);
         }
         else
         {
             SMesh(GetMagMesh(), exportParts);
-            if (levelTuple.Item3 != null) OverrideMaterials(levelTuple.Item2, exportParts.Last().OverrideMaterials);
+            if (levelTuple.Item2 != null) OverrideMaterials(levelTuple.Item2, exportParts.Last().OverrideMaterials);
         }
 
         //handle style materials for mag mesh
