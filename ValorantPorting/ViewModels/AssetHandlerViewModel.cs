@@ -136,13 +136,24 @@ public class AssetHandlerData
         if (firstTag.Contains("NPE") || firstTag.Contains("Random")) return;
 
         actualAsset = await AppVM.CUE4ParseVM.Provider.SafeLoadPackageObjectAsync(firstTag);
-        if (actualAsset == null) return;
+        if (actualAsset == null)
+        {
+            AppLog.Warning($"[{AssetType}] SafeLoadPackageObjectAsync returned null for: {firstTag}");
+            return;
+        }
 
         if (actualAsset is not UBlueprintGeneratedClass uBlueprintGeneratedClass)
+        {
+            AppLog.Warning($"[{AssetType}] Loaded asset was not a UBlueprintGeneratedClass for: {firstTag} (actual type: {actualAsset.GetType().Name})");
             return;
+        }
 
         var classDefaultObject = uBlueprintGeneratedClass.ClassDefaultObject?.Load();
-        if (classDefaultObject == null) return;
+        if (classDefaultObject == null)
+        {
+            AppLog.Warning($"[{AssetType}] ClassDefaultObject was null/failed to load for: {firstTag}");
+            return;
+        }
 
         actualAsset = classDefaultObject;
         var mainA = actualAsset;
