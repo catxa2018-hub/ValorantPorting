@@ -266,7 +266,7 @@ public static class ExportHelpers
             var classDefaultObject = valueLoaded.ClassDefaultObject.Load();
 
             string[] scope = { "1pReflexMesh", "MaterialOverrides", "Reflex" };
-            string[] silencer = { "1p Mesh", "1p MaterialOverrides", "Barrel" };
+            string[] silencer = { "1p Mesh", "3p MaterialOverrides", "Barrel" };
             var currentAttatchList = new List<List<string>>();
             currentAttatchList.Add(new List<string>(scope));
             currentAttatchList.Add(new List<string>(silencer));
