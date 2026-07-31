@@ -162,7 +162,7 @@ public static class ExportHelpers
                     string[] matNames = { "3p MaterialOverrides", "1p MaterialOverrides" };
                     foreach (var matName in matNames)
                     {
-                        var styleAttachmentMats = GetStyleAttatchmentMats(style, matName);
+                        var styleAttachmentMats = GetStyleAttatchmentMats(style, matName, attachmentTuple.Item1[i]);
                         if (styleAttachmentMats != null)
                             OverrideMaterials(styleAttachmentMats, exportParts.Last().StyleMaterials);
                     }
@@ -287,20 +287,35 @@ public static class ExportHelpers
         return Tuple.Create(fullSockets, meshes, fullOverrideMaterials, paramNames);
     }
 
-    public static UMaterialInstanceConstant[] GetStyleAttatchmentMats(UObject style, string paramName)
+        public static UMaterialInstanceConstant[] GetStyleAttatchmentMats(UObject style, string paramName, string socketName)
     {
         var bpGnCast = style as UBlueprintGeneratedClass;
         var styleClassDefaultObject = bpGnCast.ClassDefaultObject.Load();
         if (styleClassDefaultObject.TryGetValue(out UScriptMap styleAttachmentOverrides, "AttachmentOverrides"))
-            //  loop 
+        {
             foreach (var scriptMapVariable in styleAttachmentOverrides.Properties)
             {
                 var scriptMapValue = (FSoftObjectPath)scriptMapVariable.Value.GenericValue;
                 var valueLoaded = (UBlueprintGeneratedClass)scriptMapValue.Load();
                 var classDefaultObject = valueLoaded.ClassDefaultObject.Load();
-                classDefaultObject.TryGetValue(out UMaterialInstanceConstant[] materials, paramName);
-                return materials;
+                
+                // Identify which attachment this is by checking its defining mesh property
+                string[] scope = { "1pReflexMesh", "MaterialOverrides", "Reflex" };
+                string[] silencer = { "1p Mesh", "3p MaterialOverrides", "Barrel" };
+                var checkList = new List<string[]> { scope, silencer };
+                
+                foreach (var check in checkList)
+                {
+                    classDefaultObject.TryGetValue(out USkeletalMesh mesh, check[0]);
+                    if (mesh == null) continue;
+                    if (check[2] == socketName)
+                    {
+                        classDefaultObject.TryGetValue(out UMaterialInstanceConstant[] materials, paramName);
+                        return materials;
+                    }
+                }
             }
+        }
 
         return null;
     }
