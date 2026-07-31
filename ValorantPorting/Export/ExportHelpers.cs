@@ -155,16 +155,29 @@ public static class ExportHelpers
                 exportParts.First().Attatchments.Add(scope_tach);
                 if (attachmentTuple.Item3[i] != null) OverrideMaterials(attachmentTuple.Item3[i], exportParts.Last().OverrideMaterials);
                 
-                //handle attachment style mats
+                                //handle attachment style mats
                 if (style != null)
                 {
+                    bool foundAttachmentMats = false;
+                    
                     //scope, muzzle
                     string[] matNames = { "3p MaterialOverrides", "1p MaterialOverrides" };
                     foreach (var matName in matNames)
                     {
                         var styleAttachmentMats = GetStyleAttatchmentMats(style, matName, attachmentTuple.Item1[i]);
                         if (styleAttachmentMats != null)
+                        {
                             OverrideMaterials(styleAttachmentMats, exportParts.Last().StyleMaterials);
+                            foundAttachmentMats = true;
+                        }
+                    }
+                    
+                    // Fallback: some skins store all chroma materials (gun + attachments) in the main chroma CDO
+                    if (!foundAttachmentMats && handledStyleGun != null)
+                    {
+                        var fallbackMats = handledStyleGun.GetOrDefault("3p Material Overrides", Array.Empty<UMaterialInstanceConstant>());
+                        if (fallbackMats.Length > 0)
+                            OverrideMaterials(fallbackMats, exportParts.Last().StyleMaterials);
                     }
                 }
             }
