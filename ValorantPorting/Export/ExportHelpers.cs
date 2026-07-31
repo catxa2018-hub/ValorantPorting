@@ -287,19 +287,44 @@ public static class ExportHelpers
         return Tuple.Create(fullSockets, meshes, fullOverrideMaterials, paramNames);
     }
 
-        public static UMaterialInstanceConstant[] GetStyleAttatchmentMats(UObject style, string paramName, string socketName)
+    public static UMaterialInstanceConstant[] GetStyleAttatchmentMats(UObject style, string paramName, string socketName)
     {
         var bpGnCast = style as UBlueprintGeneratedClass;
         var styleClassDefaultObject = bpGnCast.ClassDefaultObject.Load();
-        if (styleClassDefaultObject.TryGetValue(out UScriptMap styleAttachmentOverrides, "AttachmentOverrides"))
+        
+        // Try style CDO first, then fall back to chroma CDO
+        var sources = new List<UObject> { styleClassDefaultObject };
+        if (styleClassDefaultObject.TryGetValue(out UBlueprintGeneratedClass chromaBp, "EquippableSkinChroma"))
         {
+            var chromaCdo = chromaBp.ClassDefaultObject.Load();
+            if (chromaCdo != null)
+                sources.Add(chromaCdo);
+        }
+        
+        // Try multiple property name variants (skins use different naming conventions)
+        var paramNamesToTry = new List<string> { paramName };
+        if (paramName == "3p MaterialOverrides")
+        {
+            paramNamesToTry.Add("MaterialOverrides");
+            paramNamesToTry.Add("3p Material Overrides");
+        }
+        else if (paramName == "1p MaterialOverrides")
+        {
+            paramNamesToTry.Add("1p Material Overrides");
+        }
+        
+        foreach (var source in sources)
+        {
+            if (!source.TryGetValue(out UScriptMap styleAttachmentOverrides, "AttachmentOverrides"))
+                continue;
+                
             foreach (var scriptMapVariable in styleAttachmentOverrides.Properties)
             {
                 var scriptMapValue = (FSoftObjectPath)scriptMapVariable.Value.GenericValue;
                 var valueLoaded = (UBlueprintGeneratedClass)scriptMapValue.Load();
                 var classDefaultObject = valueLoaded.ClassDefaultObject.Load();
                 
-                // Identify which attachment this is by checking its defining mesh property
+                // Match attachment by socket name
                 string[] scope = { "1pReflexMesh", "MaterialOverrides", "Reflex" };
                 string[] silencer = { "1p Mesh", "3p MaterialOverrides", "Barrel" };
                 var checkList = new List<string[]> { scope, silencer };
@@ -310,13 +335,17 @@ public static class ExportHelpers
                     if (mesh == null) continue;
                     if (check[2] == socketName)
                     {
-                        classDefaultObject.TryGetValue(out UMaterialInstanceConstant[] materials, paramName);
-                        return materials;
+                        foreach (var tryParamName in paramNamesToTry)
+                        {
+                            classDefaultObject.TryGetValue(out UMaterialInstanceConstant[] materials, tryParamName);
+                            if (materials != null && materials.Length > 0)
+                                return materials;
+                        }
                     }
                 }
             }
         }
-
+        
         return null;
     }
     
