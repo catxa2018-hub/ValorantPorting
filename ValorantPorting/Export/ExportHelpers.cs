@@ -159,7 +159,7 @@ public static class ExportHelpers
                 if (style != null)
                 {
                     //scope, muzzle
-                    string[] matNames = { "3pMaterialOverrides", "1p MaterialOverrides" };
+                    string[] matNames = { "3p MaterialOverrides", "1p MaterialOverrides" };
                     foreach (var matName in matNames)
                     {
                         var styleAttachmentMats = GetStyleAttatchmentMats(style, matName);
