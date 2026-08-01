@@ -217,7 +217,7 @@ public static class ExportHelpers
                 ready.TryGetValue(out USkeletalMesh newMesh, "NewMesh");
 
                 USkeletalMesh localMeshUsed = null;
-                var cosmeticLooksLikeAWeapon = false;
+                var cosmeticLooksLikeAWeapon = true; // default: trust Cosmetic mesh, matching known-good baseline behavior
                 if (cosmeticMesh != null)
                 {
                     try
@@ -245,9 +245,12 @@ public static class ExportHelpers
 
                             if (boneInfoArray is System.Collections.IEnumerable boneList)
                             {
+                                var boneCount = 0;
+                                var foundMagazineBone = false;
                                 foreach (var boneInfo in boneList)
                                 {
                                     if (boneInfo == null) continue;
+                                    boneCount++;
                                     var boneInfoType = boneInfo.GetType();
                                     object nameMember = (object)boneInfoType.GetField("Name") ?? (object)boneInfoType.GetProperty("Name");
                                     object nameValue = nameMember switch
@@ -265,10 +268,17 @@ public static class ExportHelpers
 
                                     if (string.Equals(boneNameText, "Magazine_Main", StringComparison.OrdinalIgnoreCase))
                                     {
-                                        cosmeticLooksLikeAWeapon = true;
+                                        foundMagazineBone = true;
                                         break;
                                     }
                                 }
+
+                                // Only override the safe default if we actually got a real bone list to inspect.
+                                // An empty/unreadable list means our reflection guess likely didn't find the right
+                                // property — in that case, stay on the safe default (trust Cosmetic) rather than
+                                // treating "found nothing" as "confirmed decorative".
+                                if (boneCount > 0)
+                                    cosmeticLooksLikeAWeapon = foundMagazineBone;
                             }
                         }
                     }
