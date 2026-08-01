@@ -212,7 +212,81 @@ public static class ExportHelpers
             if (cdoLo.TryGetValue(out localUob, "SkinAttachment"))
             {
                 var ready = localUob.ClassDefaultObject.Load();
-                ready.TryGetValue(out USkeletalMesh localMeshUsed, "Weapon 1P Cosmetic", "Weapon 1P", "NewMesh");
+                ready.TryGetValue(out USkeletalMesh cosmeticMesh, "Weapon 1P Cosmetic");
+                ready.TryGetValue(out USkeletalMesh actualWeaponMesh, "Weapon 1P");
+                ready.TryGetValue(out USkeletalMesh newMesh, "NewMesh");
+
+                USkeletalMesh localMeshUsed = null;
+                var cosmeticLooksLikeAWeapon = false;
+                if (cosmeticMesh != null)
+                {
+                    try
+                    {
+                        var meshType = cosmeticMesh.GetType();
+                        object refSkeletonMember = (object)meshType.GetProperty("RefSkeleton") ?? meshType.GetField("RefSkeleton")
+                            ?? (object)meshType.GetProperty("ReferenceSkeleton") ?? meshType.GetField("ReferenceSkeleton");
+                        object refSkeletonValue = refSkeletonMember switch
+                        {
+                            System.Reflection.PropertyInfo p => p.GetValue(cosmeticMesh),
+                            System.Reflection.FieldInfo f => f.GetValue(cosmeticMesh),
+                            _ => null
+                        };
+
+                        if (refSkeletonValue != null)
+                        {
+                            var rsType = refSkeletonValue.GetType();
+                            object boneInfoMember = (object)rsType.GetField("FinalRefBoneInfo") ?? (object)rsType.GetProperty("FinalRefBoneInfo");
+                            object boneInfoArray = boneInfoMember switch
+                            {
+                                System.Reflection.FieldInfo f => f.GetValue(refSkeletonValue),
+                                System.Reflection.PropertyInfo p => p.GetValue(refSkeletonValue),
+                                _ => null
+                            };
+
+                            if (boneInfoArray is System.Collections.IEnumerable boneList)
+                            {
+                                foreach (var boneInfo in boneList)
+                                {
+                                    if (boneInfo == null) continue;
+                                    var boneInfoType = boneInfo.GetType();
+                                    object nameMember = (object)boneInfoType.GetField("Name") ?? (object)boneInfoType.GetProperty("Name");
+                                    object nameValue = nameMember switch
+                                    {
+                                        System.Reflection.FieldInfo f => f.GetValue(boneInfo),
+                                        System.Reflection.PropertyInfo p => p.GetValue(boneInfo),
+                                        _ => null
+                                    };
+                                    if (nameValue == null) continue;
+
+                                    var textProp = nameValue.GetType().GetProperty("Text");
+                                    var boneNameText = textProp != null
+                                        ? textProp.GetValue(nameValue)?.ToString()
+                                        : nameValue.ToString();
+
+                                    if (string.Equals(boneNameText, "Magazine_Main", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        cosmeticLooksLikeAWeapon = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        cosmeticLooksLikeAWeapon = true;
+                    }
+                }
+
+                if (cosmeticMesh != null && cosmeticLooksLikeAWeapon)
+                    localMeshUsed = cosmeticMesh;
+                else if (actualWeaponMesh != null)
+                    localMeshUsed = actualWeaponMesh;
+                else if (newMesh != null)
+                    localMeshUsed = newMesh;
+                else if (cosmeticMesh != null)
+                    localMeshUsed = cosmeticMesh;
+
                 if (localMeshUsed != null) highestMeshUsed = localMeshUsed;
                 ready.TryGetValue(out UMaterialInstanceConstant[] localMatUsed, "1p MaterialOverrides");
                 if (localMatUsed != null) highestWeapMaterialUsed = localMatUsed;
