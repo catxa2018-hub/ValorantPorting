@@ -482,8 +482,8 @@ public static class ExportHelpers
                         try
                         {
                             var nameObj = prop.Name;
-                            var textProp = nameObj?.GetType().GetProperty("Text");
-                            propNames.Add(textProp != null ? textProp.GetValue(nameObj)?.ToString() : nameObj?.ToString());
+                            var textProp = nameObj.GetType().GetProperty("Text");
+                            propNames.Add(textProp != null ? textProp.GetValue(nameObj)?.ToString() : nameObj.ToString());
                         }
                         catch { propNames.Add("(unreadable)"); }
                     }
