@@ -216,87 +216,48 @@ public static class ExportHelpers
                 ready.TryGetValue(out USkeletalMesh actualWeaponMesh, "Weapon 1P");
                 ready.TryGetValue(out USkeletalMesh newMesh, "NewMesh");
 
-                USkeletalMesh localMeshUsed = null;
-                var cosmeticLooksLikeAWeapon = true; // default: trust Cosmetic mesh, matching known-good baseline behavior
+                // TEMPORARY DIAGNOSTIC — does not change export behavior.
+                // Logs the real property names on the Cosmetic mesh's type so we can
+                // find the correct skeleton/bone property instead of guessing.
                 if (cosmeticMesh != null)
                 {
                     try
                     {
+                        var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                        System.IO.Directory.CreateDirectory(logDir);
+                        var logPath = System.IO.Path.Combine(logDir, "bonecheck_diagnostics.log");
+
+                        var sb = new System.Text.StringBuilder();
+                        sb.AppendLine($"--- {DateTime.Now:HH:mm:ss} ---");
+                        sb.AppendLine($"Mesh Name: {cosmeticMesh.Name}");
                         var meshType = cosmeticMesh.GetType();
-                        object refSkeletonMember = (object)meshType.GetProperty("RefSkeleton") ?? meshType.GetField("RefSkeleton")
-                            ?? (object)meshType.GetProperty("ReferenceSkeleton") ?? meshType.GetField("ReferenceSkeleton");
-                        object refSkeletonValue = refSkeletonMember switch
-                        {
-                            System.Reflection.PropertyInfo p => p.GetValue(cosmeticMesh),
-                            System.Reflection.FieldInfo f => f.GetValue(cosmeticMesh),
-                            _ => null
-                        };
+                        sb.AppendLine($"CLR Type: {meshType.FullName}");
 
-                        if (refSkeletonValue != null)
-                        {
-                            var rsType = refSkeletonValue.GetType();
-                            object boneInfoMember = (object)rsType.GetField("FinalRefBoneInfo") ?? (object)rsType.GetProperty("FinalRefBoneInfo");
-                            object boneInfoArray = boneInfoMember switch
-                            {
-                                System.Reflection.FieldInfo f => f.GetValue(refSkeletonValue),
-                                System.Reflection.PropertyInfo p => p.GetValue(refSkeletonValue),
-                                _ => null
-                            };
+                        var candidateMembers = new System.Collections.Generic.List<string>();
+                        foreach (var prop in meshType.GetProperties())
+                            if (prop.Name.IndexOf("Skeleton", StringComparison.OrdinalIgnoreCase) >= 0
+                                || prop.Name.IndexOf("Bone", StringComparison.OrdinalIgnoreCase) >= 0
+                                || prop.Name.IndexOf("Ref", StringComparison.OrdinalIgnoreCase) >= 0)
+                                candidateMembers.Add($"[property] {prop.Name} : {prop.PropertyType.Name}");
+                        foreach (var field in meshType.GetFields())
+                            if (field.Name.IndexOf("Skeleton", StringComparison.OrdinalIgnoreCase) >= 0
+                                || field.Name.IndexOf("Bone", StringComparison.OrdinalIgnoreCase) >= 0
+                                || field.Name.IndexOf("Ref", StringComparison.OrdinalIgnoreCase) >= 0)
+                                candidateMembers.Add($"[field] {field.Name} : {field.FieldType.Name}");
 
-                            if (boneInfoArray is System.Collections.IEnumerable boneList)
-                            {
-                                var boneCount = 0;
-                                var foundMagazineBone = false;
-                                foreach (var boneInfo in boneList)
-                                {
-                                    if (boneInfo == null) continue;
-                                    boneCount++;
-                                    var boneInfoType = boneInfo.GetType();
-                                    object nameMember = (object)boneInfoType.GetField("Name") ?? (object)boneInfoType.GetProperty("Name");
-                                    object nameValue = nameMember switch
-                                    {
-                                        System.Reflection.FieldInfo f => f.GetValue(boneInfo),
-                                        System.Reflection.PropertyInfo p => p.GetValue(boneInfo),
-                                        _ => null
-                                    };
-                                    if (nameValue == null) continue;
+                        sb.AppendLine(candidateMembers.Count > 0
+                            ? "Candidate members:\n  " + string.Join("\n  ", candidateMembers)
+                            : "No members matched Skeleton/Bone/Ref on this type.");
 
-                                    var textProp = nameValue.GetType().GetProperty("Text");
-                                    var boneNameText = textProp != null
-                                        ? textProp.GetValue(nameValue)?.ToString()
-                                        : nameValue.ToString();
-
-                                    if (string.Equals(boneNameText, "Magazine_Main", StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        foundMagazineBone = true;
-                                        break;
-                                    }
-                                }
-
-                                // Only override the safe default if we actually got a real bone list to inspect.
-                                // An empty/unreadable list means our reflection guess likely didn't find the right
-                                // property — in that case, stay on the safe default (trust Cosmetic) rather than
-                                // treating "found nothing" as "confirmed decorative".
-                                if (boneCount > 0)
-                                    cosmeticLooksLikeAWeapon = foundMagazineBone;
-                            }
-                        }
+                        System.IO.File.AppendAllText(logPath, sb.ToString() + "\n");
                     }
                     catch
                     {
-                        cosmeticLooksLikeAWeapon = true;
+                        // never let diagnostics affect the actual export
                     }
                 }
 
-                if (cosmeticMesh != null && cosmeticLooksLikeAWeapon)
-                    localMeshUsed = cosmeticMesh;
-                else if (actualWeaponMesh != null)
-                    localMeshUsed = actualWeaponMesh;
-                else if (newMesh != null)
-                    localMeshUsed = newMesh;
-                else if (cosmeticMesh != null)
-                    localMeshUsed = cosmeticMesh;
-
+                USkeletalMesh localMeshUsed = cosmeticMesh ?? actualWeaponMesh ?? newMesh;
                 if (localMeshUsed != null) highestMeshUsed = localMeshUsed;
                 ready.TryGetValue(out UMaterialInstanceConstant[] localMatUsed, "1p MaterialOverrides");
                 if (localMatUsed != null) highestWeapMaterialUsed = localMatUsed;
