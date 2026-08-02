@@ -172,10 +172,13 @@ public static class ExportHelpers
                         }
                     }
                     
+                    LogSilencerDiagnostic($"[call site] socket={attachmentTuple.Item1[i]}, mesh={exportParts.Last().MeshName}, foundAttachmentMats={foundAttachmentMats}, handledStyleGun null={handledStyleGun == null}");
+
                     // Fallback: some skins store all chroma materials (gun + attachments) in the main chroma CDO
                     if (!foundAttachmentMats && handledStyleGun != null)
                     {
                         var fallbackMats = handledStyleGun.GetOrDefault("3p Material Overrides", Array.Empty<UMaterialInstanceConstant>());
+                        LogSilencerDiagnostic($"[call site] fallback check for socket={attachmentTuple.Item1[i]}, fallbackMats.Length={fallbackMats.Length}");
                         if (fallbackMats.Length > 0)
                             OverrideMaterials(fallbackMats, exportParts.Last().StyleMaterials);
                     }
@@ -415,6 +418,18 @@ public static class ExportHelpers
         return Tuple.Create(fullSockets, meshes, fullOverrideMaterials, paramNames);
     }
 
+    private static void LogSilencerDiagnostic(string line)
+    {
+        try
+        {
+            var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            System.IO.Directory.CreateDirectory(logDir);
+            var logPath = System.IO.Path.Combine(logDir, "silencer_diagnostics.log");
+            System.IO.File.AppendAllText(logPath, line + "\n");
+        }
+        catch { }
+    }
+
     public static UMaterialInstanceConstant[] GetStyleAttatchmentMats(UObject style, string paramName, string socketName)
     {
         var bpGnCast = style as UBlueprintGeneratedClass;
@@ -441,17 +456,44 @@ public static class ExportHelpers
             paramNamesToTry.Add("1p Material Overrides");
         }
         
+        LogSilencerDiagnostic($"--- {DateTime.Now:HH:mm:ss} --- GetStyleAttatchmentMats socketName={socketName}, paramName={paramName}, sources={sources.Count}");
+
         foreach (var source in sources)
         {
             if (!source.TryGetValue(out UScriptMap styleAttachmentOverrides, "AttachmentOverrides"))
+            {
+                LogSilencerDiagnostic("  source has no AttachmentOverrides map, skipping.");
                 continue;
-                
+            }
+
+            LogSilencerDiagnostic($"  source has AttachmentOverrides map with {styleAttachmentOverrides.Properties.Count} entries.");
+
             foreach (var scriptMapVariable in styleAttachmentOverrides.Properties)
             {
                 var scriptMapValue = (FSoftObjectPath)scriptMapVariable.Value.GenericValue;
                 var valueLoaded = (UBlueprintGeneratedClass)scriptMapValue.Load();
                 var classDefaultObject = valueLoaded.ClassDefaultObject.Load();
-                
+
+                try
+                {
+                    var propNames = new List<string>();
+                    foreach (var prop in classDefaultObject.Properties)
+                    {
+                        try
+                        {
+                            var nameObj = prop.Name;
+                            var textProp = nameObj?.GetType().GetProperty("Text");
+                            propNames.Add(textProp != null ? textProp.GetValue(nameObj)?.ToString() : nameObj?.ToString());
+                        }
+                        catch { propNames.Add("(unreadable)"); }
+                    }
+                    LogSilencerDiagnostic($"    entry properties: {string.Join(", ", propNames)}");
+                }
+                catch (Exception ex)
+                {
+                    LogSilencerDiagnostic($"    entry property dump failed: {ex.Message}");
+                }
+
                 // Match attachment by socket name
                 string[] scope = { "1pReflexMesh", "MaterialOverrides", "Reflex" };
                 string[] silencer = { "1p Mesh", "3p MaterialOverrides", "Barrel" };
@@ -460,6 +502,7 @@ public static class ExportHelpers
                 foreach (var check in checkList)
                 {
                     classDefaultObject.TryGetValue(out USkeletalMesh mesh, check[0]);
+                    LogSilencerDiagnostic($"      check[{check[2]}]: has '{check[0]}' mesh = {mesh != null}");
                     if (mesh == null) continue;
                     if (check[2] == socketName)
                     {
@@ -467,13 +510,17 @@ public static class ExportHelpers
                         {
                             classDefaultObject.TryGetValue(out UMaterialInstanceConstant[] materials, tryParamName);
                             if (materials != null && materials.Length > 0)
+                            {
+                                LogSilencerDiagnostic($"      MATCHED via '{tryParamName}', {materials.Length} materials.");
                                 return materials;
+                            }
                         }
                     }
                 }
             }
         }
-        
+
+        LogSilencerDiagnostic("  No match found in GetStyleAttatchmentMats, returning null (fallback path may trigger).");
         return null;
     }
     
