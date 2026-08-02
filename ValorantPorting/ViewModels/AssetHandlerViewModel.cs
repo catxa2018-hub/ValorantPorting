@@ -99,20 +99,20 @@ public class AssetHandlerData
 
         var items = new List<FAssetData>();
         var seenTypes = new HashSet<string>();
+        var addedPaths = new HashSet<string>();
         foreach (var variable in cue4ParseVm.AssetDataBuffers)
         {
             if (variable is null || variable.TagsAndValues is null) continue;
 
-            var matchedThisAsset = false;
             foreach (var tagsAndValue in variable.TagsAndValues)
             {
                 if (tagsAndValue.Key.PlainText == "PrimaryAssetType")
                     seenTypes.Add(tagsAndValue.Value);
 
-                if (!matchedThisAsset && ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key.PlainText == "PrimaryAssetType")
+                if (ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key.PlainText == "PrimaryAssetType")
                 {
-                    items.Add(variable);
-                    matchedThisAsset = true;
+                    if (addedPaths.Add(variable.ObjectPath))
+                        items.Add(variable);
                 }
             }
         }
