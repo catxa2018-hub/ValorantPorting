@@ -103,13 +103,17 @@ public class AssetHandlerData
         {
             if (variable is null || variable.TagsAndValues is null) continue;
 
+            var matchedThisAsset = false;
             foreach (var tagsAndValue in variable.TagsAndValues)
             {
                 if (tagsAndValue.Key.PlainText == "PrimaryAssetType")
                     seenTypes.Add(tagsAndValue.Value);
 
-                if (ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key.PlainText == "PrimaryAssetType")
+                if (!matchedThisAsset && ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key.PlainText == "PrimaryAssetType")
+                {
                     items.Add(variable);
+                    matchedThisAsset = true;
+                }
             }
         }
 
