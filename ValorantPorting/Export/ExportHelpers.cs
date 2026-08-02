@@ -503,7 +503,9 @@ public static class ExportHelpers
                 {
                     classDefaultObject.TryGetValue(out USkeletalMesh mesh, check[0]);
                     LogSilencerDiagnostic($"      check[{check[2]}]: has '{check[0]}' mesh = {mesh != null}");
-                    if (mesh == null) continue;
+                    // Mesh presence is informational only — a chroma-only override entry can
+                    // carry valid material data with no mesh reference at all (confirmed via
+                    // diagnostic log on Gaia/Ashen), so it must not gate the material lookup.
                     if (check[2] == socketName)
                     {
                         foreach (var tryParamName in paramNamesToTry)
