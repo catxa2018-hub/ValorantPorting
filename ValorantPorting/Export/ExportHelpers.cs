@@ -216,8 +216,15 @@ public static class ExportHelpers
                 ready.TryGetValue(out USkeletalMesh actualWeaponMesh, "Weapon 1P");
                 ready.TryGetValue(out USkeletalMesh newMesh, "NewMesh");
 
-                // TEMPORARY DIAGNOSTIC — does not change export behavior.
-                // ReferenceSkeleton is confirmed real; this digs into what's inside it.
+                // Default true = safe fallback (matches old baseline) if we can't read bone data at all.
+                bool cosmeticLooksLikeAWeapon = true;
+
+                // Real gun-mechanism bone names confirmed present on every tested weapon mesh
+                // (Cyberknight, Revolver Lv2 Edge, Daedalus) and absent on the Aquarium2 fish mesh.
+                // "Magazine_Main" (the original guess) never actually exists on any of these meshes -
+                // that's why both attempt 2a and 2b failed no matter which way the default was flipped.
+                string[] weaponIndicatorBones = { "Muzzle", "Mag_Holder", "Hammer", "Gun_Buddy", "Magazine_Extra" };
+
                 if (cosmeticMesh != null)
                 {
                     var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
@@ -296,7 +303,8 @@ public static class ExportHelpers
                                     boneNames.Add(boneNameText ?? "(null)");
                                 }
                                 sb.AppendLine("  " + string.Join(", ", boneNames));
-                                sb.AppendLine($"  Contains 'Magazine_Main': {boneNames.Any(n => string.Equals(n, "Magazine_Main", StringComparison.OrdinalIgnoreCase))}");
+                                cosmeticLooksLikeAWeapon = boneNames.Any(n => weaponIndicatorBones.Contains(n, StringComparer.OrdinalIgnoreCase));
+                                sb.AppendLine($"  Matched a weapon-indicator bone: {cosmeticLooksLikeAWeapon}");
                             }
                             else
                             {
@@ -317,7 +325,9 @@ public static class ExportHelpers
                     }
                 }
 
-                USkeletalMesh localMeshUsed = cosmeticMesh ?? actualWeaponMesh ?? newMesh;
+                USkeletalMesh localMeshUsed = cosmeticLooksLikeAWeapon
+                    ? (cosmeticMesh ?? actualWeaponMesh ?? newMesh)
+                    : (actualWeaponMesh ?? newMesh ?? cosmeticMesh);
                 if (localMeshUsed != null) highestMeshUsed = localMeshUsed;
                 ready.TryGetValue(out UMaterialInstanceConstant[] localMatUsed, "1p MaterialOverrides");
                 if (localMatUsed != null) highestWeapMaterialUsed = localMatUsed;
