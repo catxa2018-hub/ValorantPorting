@@ -148,6 +148,14 @@ public static class ExportHelpers
             var attachmentTuple = GetWeaponAttatchments(attachmentOverrides);
             for (var i = 0; i < attachmentTuple.Item2.Length; i++)
             {
+                // GetWeaponAttatchments always returns fixed-size-2 arrays even when a weapon only
+                // has one real attachment (e.g. Operator-class scopes with no silencer slot) - the
+                // unfilled slot has a null mesh and must be skipped entirely, or exportParts.Last()
+                // silently stays pointed at the previous real attachment and gets its materials
+                // overwritten by this phantom entry's fallback (confirmed via diagnostic log: the
+                // sniper scope's correct materials were immediately overwritten by the main body's).
+                if (attachmentTuple.Item2[i] == null) continue;
+
                 Mesh(attachmentTuple.Item2[i], exportParts);
                 var scope_tach = new ExportAttatchment();
                 scope_tach.BoneName = attachmentTuple.Item1[i];
@@ -435,14 +443,18 @@ public static class ExportHelpers
         var bpGnCast = style as UBlueprintGeneratedClass;
         var styleClassDefaultObject = bpGnCast.ClassDefaultObject.Load();
         
-        // Try style CDO first, then fall back to chroma CDO
-        var sources = new List<UObject> { styleClassDefaultObject };
+        // Try the drilled chroma CDO first (matches HandleStyle()'s proven-correct precedence
+        // for the gun body itself); raw style CDO as fallback. The raw CDO can carry valid but
+        // wrong inherited/default attachment data that would otherwise match before the real
+        // chroma-specific data ever gets checked.
+        var sources = new List<UObject>();
         if (styleClassDefaultObject.TryGetValue(out UBlueprintGeneratedClass chromaBp, "EquippableSkinChroma"))
         {
             var chromaCdo = chromaBp.ClassDefaultObject.Load();
             if (chromaCdo != null)
                 sources.Add(chromaCdo);
         }
+        sources.Add(styleClassDefaultObject);
         
         // Try multiple property name variants (skins use different naming conventions)
         var paramNamesToTry = new List<string> { paramName };
