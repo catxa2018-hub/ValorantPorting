@@ -217,43 +217,103 @@ public static class ExportHelpers
                 ready.TryGetValue(out USkeletalMesh newMesh, "NewMesh");
 
                 // TEMPORARY DIAGNOSTIC — does not change export behavior.
-                // Logs the real property names on the Cosmetic mesh's type so we can
-                // find the correct skeleton/bone property instead of guessing.
+                // ReferenceSkeleton is confirmed real; this digs into what's inside it.
                 if (cosmeticMesh != null)
                 {
+                    var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                    var logPath = System.IO.Path.Combine(logDir, "bonecheck_diagnostics.log");
                     try
                     {
-                        var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
                         System.IO.Directory.CreateDirectory(logDir);
-                        var logPath = System.IO.Path.Combine(logDir, "bonecheck_diagnostics.log");
-
                         var sb = new System.Text.StringBuilder();
                         sb.AppendLine($"--- {DateTime.Now:HH:mm:ss} ---");
                         sb.AppendLine($"Mesh Name: {cosmeticMesh.Name}");
-                        var meshType = cosmeticMesh.GetType();
-                        sb.AppendLine($"CLR Type: {meshType.FullName}");
 
-                        var candidateMembers = new System.Collections.Generic.List<string>();
-                        foreach (var prop in meshType.GetProperties())
-                            if (prop.Name.IndexOf("Skeleton", StringComparison.OrdinalIgnoreCase) >= 0
-                                || prop.Name.IndexOf("Bone", StringComparison.OrdinalIgnoreCase) >= 0
-                                || prop.Name.IndexOf("Ref", StringComparison.OrdinalIgnoreCase) >= 0)
-                                candidateMembers.Add($"[property] {prop.Name} : {prop.PropertyType.Name}");
-                        foreach (var field in meshType.GetFields())
-                            if (field.Name.IndexOf("Skeleton", StringComparison.OrdinalIgnoreCase) >= 0
-                                || field.Name.IndexOf("Bone", StringComparison.OrdinalIgnoreCase) >= 0
-                                || field.Name.IndexOf("Ref", StringComparison.OrdinalIgnoreCase) >= 0)
-                                candidateMembers.Add($"[field] {field.Name} : {field.FieldType.Name}");
+                        var refSkeleton = cosmeticMesh.ReferenceSkeleton;
+                        if (refSkeleton == null)
+                        {
+                            sb.AppendLine("ReferenceSkeleton is null.");
+                        }
+                        else
+                        {
+                            var rsType = refSkeleton.GetType();
+                            sb.AppendLine($"ReferenceSkeleton CLR Type: {rsType.FullName}");
+                            sb.AppendLine("All members:");
 
-                        sb.AppendLine(candidateMembers.Count > 0
-                            ? "Candidate members:\n  " + string.Join("\n  ", candidateMembers)
-                            : "No members matched Skeleton/Bone/Ref on this type.");
+                            object boneArray = null;
+                            string boneArrayMemberName = null;
+
+                            foreach (var prop in rsType.GetProperties())
+                            {
+                                object val = null;
+                                try { val = prop.GetValue(refSkeleton); } catch { }
+                                var countStr = "";
+                                if (val is System.Collections.IEnumerable en && !(val is string))
+                                {
+                                    var count = 0;
+                                    foreach (var _ in en) count++;
+                                    countStr = $" (Count={count})";
+                                    if (boneArray == null && count > 0) { boneArray = val; boneArrayMemberName = prop.Name; }
+                                }
+                                sb.AppendLine($"  [property] {prop.Name} : {prop.PropertyType.Name}{countStr}");
+                            }
+                            foreach (var field in rsType.GetFields())
+                            {
+                                object val = null;
+                                try { val = field.GetValue(refSkeleton); } catch { }
+                                var countStr = "";
+                                if (val is System.Collections.IEnumerable en && !(val is string))
+                                {
+                                    var count = 0;
+                                    foreach (var _ in en) count++;
+                                    countStr = $" (Count={count})";
+                                    if (boneArray == null && count > 0) { boneArray = val; boneArrayMemberName = field.Name; }
+                                }
+                                sb.AppendLine($"  [field] {field.Name} : {field.FieldType.Name}{countStr}");
+                            }
+
+                            if (boneArray is System.Collections.IEnumerable boneList)
+                            {
+                                sb.AppendLine($"Dumping bone names from '{boneArrayMemberName}':");
+                                var boneNames = new System.Collections.Generic.List<string>();
+                                foreach (var boneInfo in boneList)
+                                {
+                                    if (boneInfo == null) continue;
+                                    var boneInfoType = boneInfo.GetType();
+                                    object nameMember = (object)boneInfoType.GetField("Name") ?? (object)boneInfoType.GetProperty("Name");
+                                    object nameValue = nameMember switch
+                                    {
+                                        System.Reflection.FieldInfo f => f.GetValue(boneInfo),
+                                        System.Reflection.PropertyInfo p => p.GetValue(boneInfo),
+                                        _ => null
+                                    };
+                                    string boneNameText = null;
+                                    if (nameValue != null)
+                                    {
+                                        var textProp = nameValue.GetType().GetProperty("Text");
+                                        boneNameText = textProp != null ? textProp.GetValue(nameValue)?.ToString() : nameValue.ToString();
+                                    }
+                                    boneNames.Add(boneNameText ?? "(null)");
+                                }
+                                sb.AppendLine("  " + string.Join(", ", boneNames));
+                                sb.AppendLine($"  Contains 'Magazine_Main': {boneNames.Any(n => string.Equals(n, "Magazine_Main", StringComparison.OrdinalIgnoreCase))}");
+                            }
+                            else
+                            {
+                                sb.AppendLine("Could not find any non-empty enumerable member to use as a bone array.");
+                            }
+                        }
 
                         System.IO.File.AppendAllText(logPath, sb.ToString() + "\n");
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // never let diagnostics affect the actual export
+                        try
+                        {
+                            System.IO.Directory.CreateDirectory(logDir);
+                            System.IO.File.AppendAllText(logPath, $"--- {DateTime.Now:HH:mm:ss} --- EXCEPTION: {ex}\n\n");
+                        }
+                        catch { }
                     }
                 }
 
