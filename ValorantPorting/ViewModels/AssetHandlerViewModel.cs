@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -78,6 +79,10 @@ public class AssetHandlerData
     public ObservableCollection<AssetSelectorItem> TargetCollection;
     public bool HasStarted { get; private set; }
     public Pauser PauseState { get; } = new();
+
+    // Some characters have 2 distinct underlying asset paths that both resolve to the same
+    // visible entry (same UI name/icon) - dedupe on that name so it only loads once.
+    private readonly ConcurrentDictionary<string, byte> _seenDisplayIds = new();
 
     public async Task Execute()
     {
@@ -247,6 +252,11 @@ public class AssetHandlerData
 
         var previewImage = IconGetter(uiAsset);
         if (previewImage is null) return;
+
+        var dedupeKey = uiAsset.Name;
+        if (!string.IsNullOrEmpty(dedupeKey) && !_seenDisplayIds.TryAdd(dedupeKey, 0))
+            return; // already added this one under a different asset path, skip the duplicate
+
         await Application.Current.Dispatcher.InvokeAsync(
             () => TargetCollection.Add(new AssetSelectorItem(actualAsset, uiAsset, mainA, previewImage, random)),
             DispatcherPriority.Background);
