@@ -1,6 +1,11 @@
 # IDE Stuff
 .idea
-.vs\
+.vs/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
 # Build
 bin
 obj
