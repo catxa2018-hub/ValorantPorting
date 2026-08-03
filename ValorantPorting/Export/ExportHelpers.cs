@@ -32,7 +32,8 @@ public static class ExportHelpers
         LodFormat = ELodFormat.AllLods,
         MeshFormat = EMeshFormat.ActorX,
         TextureFormat = ETextureFormat.Png,
-        ExportMorphTargets = false
+        ExportMorphTargets = false,
+        ExportMaterials = false
     };
     
     public static void GunBuddy(List<ExportPart> exportParts, UObject asset)
