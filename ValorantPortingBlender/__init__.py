@@ -148,7 +148,12 @@ def import_texture(path: str) -> bpy.types.Image:
 
 def import_material(target_slot: bpy.types.MaterialSlot, material_data, mat_type):
     material_name = material_data.get("MaterialName")
-    if (existing := bpy.data.materials.get(material_name)) and existing.use_nodes is True:  # assume default psk mat
+    # NOTE: Blender 5.0+ made Material.use_nodes always return True (deprecated),
+    # AND new materials now come pre-populated with a default node tree (Principled BSDF +
+    # Material Output) automatically. Neither of those can be used anymore to tell "a fresh
+    # placeholder material" apart from "one we already fully built." Use our own explicit
+    # marker instead, set at the bottom of this function once building is actually done.
+    if (existing := bpy.data.materials.get(material_name)) and existing.get("vp_built") is True:
         target_slot.material = existing
         return
     target_material = target_slot.material
@@ -279,6 +284,9 @@ def import_material(target_slot: bpy.types.MaterialSlot, material_data, mat_type
         for output in group_inputs.outputs:
             if imported_shader_node.inputs.get(output.name) is not None:
                 new_shader_internals.links.new(output, imported_shader_node.inputs.get(output.name))
+
+    # mark this material as fully built so future lookups can safely reuse it
+    target_material["vp_built"] = True
 
 
 def import_shaders(shaderName):
