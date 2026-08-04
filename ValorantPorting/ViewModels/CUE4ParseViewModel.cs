@@ -21,6 +21,9 @@ public class CUE4ParseViewModel : ObservableObject
 
     private static readonly string MappingsPath = FindMappingsFile();
 
+    // Update this URL whenever Valorant patches and the mappings go stale.
+    private const string MappingsDownloadUrl = "https://data.uedb.dev/mappings/68c7964faa9ff725d91c8302/VALORANT_13.02_zs.usmap";
+
     private static string FindMappingsFile()
     {
         var mappingsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Mappings");
@@ -58,6 +61,23 @@ public class CUE4ParseViewModel : ObservableObject
     public async Task Initialize()
     {
         if (Provider is null) return;
+
+        if (!File.Exists(MappingsPath))
+        {
+            AppLog.Information("Mappings file not found locally, downloading a copy from uedb.dev...");
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(MappingsPath)!);
+                using var mappingsHttpClient = new System.Net.Http.HttpClient();
+                var mappingsBytes = mappingsHttpClient.GetByteArrayAsync(MappingsDownloadUrl).GetAwaiter().GetResult();
+                File.WriteAllBytes(MappingsPath, mappingsBytes);
+                AppLog.Information("Mappings file downloaded successfully.");
+            }
+            catch (Exception ex)
+            {
+                AppLog.Warning($"Automatic Mappings download failed: {ex.Message}");
+            }
+        }
 
         if (!File.Exists(MappingsPath))
         {
