@@ -47,9 +47,4 @@
         <Compile Remove="ViewModels\BundleDownloaderViewModel.cs"/>
     </ItemGroup>
 
-    <ItemGroup>
-        <Content Include="Mappings\*.usmap">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
-</Project>
+    
