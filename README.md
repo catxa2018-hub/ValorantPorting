@@ -12,6 +12,7 @@ A free and open-source tool created by https://github.com/Ka1serM to automate th
 ## ValorantPorting Client
 * Download `ValorantPorting.zip` from the [latest release]
 * Unzip the archive to a location where programs have read/write permissions (Avoid Downloads/Desktop)
+* IMPORTANT: Download the LATEST Valorant usmap file from https://uedb.dev/, make a folder next to `ValorantPorting.exe` called "Mappings" and put the usmap file inside it. Valorant Porting will NOT work without this. 
 * Launch the `ValorantPorting.exe` executable
 
 
