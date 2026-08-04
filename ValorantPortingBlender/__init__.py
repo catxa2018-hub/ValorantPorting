@@ -89,42 +89,61 @@ class Receiver(threading.Thread):
         Log.information("ValorantPorting Server Closed")
 
 
-def import_mesh(path: str) -> bpy.types.Object:
+def resolve_asset_path(path: str) -> str:
     path = path[1:] if path.startswith("/") else path
-    mesh_path = os.path.join(import_assets_root, path.split(".")[0] + "_LOD0")
+    # Unreal's "/Game/" is a virtual mount point; on disk these assets
+    # actually live under "ShooterGame/Content/".
+    if path.startswith("Game/"):
+        path = "ShooterGame/Content/" + path[len("Game/"):]
+    return path
 
-    if os.path.exists(mesh_path + ".psk"):
-        mesh_path += ".psk"
-        pskimport(
-            mesh_path,
-            bReorientBones=import_settings.get("ReorientBones"),
-            bScaleDown=True,
-            bToSRGB=False)
 
-        return bpy.context.active_object
+def import_mesh(path: str) -> bpy.types.Object:
+    path = resolve_asset_path(path)
+    base_path = os.path.join(import_assets_root, path.split(".")[0])
 
-    if os.path.exists(mesh_path + ".pskx"):
-        mesh_path += ".pskx"
-        pskimport(
-            mesh_path,
-            bScaleDown=True,
-            bToSRGB=False)
-        return bpy.context.active_object
-    else:
-        return None
+    candidates = [base_path + "_LOD0"]
+    if not base_path.endswith("_Skelmesh"):
+        candidates.append(base_path + "_Skelmesh_LOD0")
+
+    for mesh_path in candidates:
+        if os.path.exists(mesh_path + ".psk"):
+            pskimport(
+                mesh_path + ".psk",
+                bReorientBones=import_settings.get("ReorientBones"),
+                bScaleDown=True,
+                bToSRGB=False)
+            return bpy.context.active_object
+
+        if os.path.exists(mesh_path + ".pskx"):
+            pskimport(
+                mesh_path + ".pskx",
+                bScaleDown=True,
+                bToSRGB=False)
+            return bpy.context.active_object
+
+    print(f"[DEBUG] Mesh not found. Raw path from app: {path!r}")
+    print(f"[DEBUG] AssetsRoot: {import_assets_root!r}")
+    print(f"[DEBUG] Computed base_path: {base_path!r}")
+    return None
 
 def import_texture(path: str) -> bpy.types.Image:
     path, name = path.split(".")
     if existing := bpy.data.images.get(name):
         return existing
 
-    path = path[1:] if path.startswith("/") else path
-    texture_path = os.path.join(import_assets_root, path + ".png")
+    raw_path = path[1:] if path.startswith("/") else path
+    translated_path = resolve_asset_path(path)
 
-    if not os.path.exists(texture_path):
-        return None
+    for candidate in [translated_path, raw_path]:
+        texture_path = os.path.join(import_assets_root, candidate + ".png")
+        if os.path.exists(texture_path):
+            return bpy.data.images.load(texture_path, check_existing=True)
 
-    return bpy.data.images.load(texture_path, check_existing=True)
+    print(f"[DEBUG] Texture not found in either location. Tried: "
+          f"{os.path.join(import_assets_root, translated_path + '.png')!r} and "
+          f"{os.path.join(import_assets_root, raw_path + '.png')!r}")
+    return None
 
 
 def import_material(target_slot: bpy.types.MaterialSlot, material_data, mat_type):
@@ -388,7 +407,7 @@ def import_response(response):
         attachments = imported_part.get("Attachments")
         parent_obj = imported_part.get("Parent")
         for attachment in attachments:
-            child_name = attachment.get("AttachmentName")
+            child_name = attachment.get("AttatchmentName")
             if child_name is not None:
                 child_obj = bpy.context.scene.objects[child_name]
                 if child_obj.parent is not None:

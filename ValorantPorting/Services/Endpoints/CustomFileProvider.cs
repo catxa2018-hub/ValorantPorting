@@ -25,10 +25,12 @@ public abstract class CustomFileProvider : AbstractVfsFileProvider
     private readonly List<DirectoryInfo> _extraDirectories = new();
     private readonly SearchOption _searchOption;
     private DirectoryInfo _workingDirectory;
+    private readonly bool _isCaseInsensitive;
 
     public CustomFileProvider(bool isCaseInsensitive = false, VersionContainer versions = null) : base(
-        isCaseInsensitive, versions)
+        versions, isCaseInsensitive ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)
     {
+        _isCaseInsensitive = isCaseInsensitive;
     }
 
     public CustomFileProvider(string directory, SearchOption searchOption, bool isCaseInsensitive = false,
@@ -39,20 +41,23 @@ public abstract class CustomFileProvider : AbstractVfsFileProvider
 
     public CustomFileProvider(DirectoryInfo directory, SearchOption searchOption, bool isCaseInsensitive = false,
         VersionContainer versions = null)
-        : base(isCaseInsensitive, versions)
+        : base(versions, isCaseInsensitive ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)
     {
+        _isCaseInsensitive = isCaseInsensitive;
         _workingDirectory = directory;
         _searchOption = searchOption;
     }
 
     public CustomFileProvider(DirectoryInfo mainDirectory, List<DirectoryInfo> extraDirectories,
         SearchOption searchOption, bool isCaseInsensitive = false, VersionContainer versions = null)
-        : base(isCaseInsensitive, versions)
+        : base(versions, isCaseInsensitive ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)
     {
+        _isCaseInsensitive = isCaseInsensitive;
         _workingDirectory = mainDirectory;
         _extraDirectories = extraDirectories;
         _searchOption = searchOption;
     }
+
 
     /// <summary>
     ///     Initialize all local files in the directory
@@ -69,7 +74,12 @@ public abstract class CustomFileProvider : AbstractVfsFileProvider
 
     public void InitializeRawFiles(DirectoryInfo info)
     {
-        _files.AddFiles(IterateFiles(info, _searchOption));
+        Files.AddFiles(IterateFiles(info, _searchOption));
+    }
+
+    public override void Initialize()
+    {
+        Initialize(string.Empty, null, null);
     }
 
     /// <summary>
@@ -90,8 +100,8 @@ public abstract class CustomFileProvider : AbstractVfsFileProvider
             {
                 var reader = new PakFileReader(file, stream[0], Versions)
                     { IsConcurrent = true, CustomEncryption = CustomEncryption };
-                if (reader.IsEncrypted && !_requiredKeys.ContainsKey(reader.Info.EncryptionKeyGuid))
-                    _requiredKeys[reader.Info.EncryptionKeyGuid] = null;
+                if (reader.IsEncrypted && !_requiredKeys.ContainsKey(reader.EncryptionKeyGuid))
+                    _requiredKeys[reader.EncryptionKeyGuid] = null;
                 _unloadedVfs[reader] = null;
             }
             catch (Exception e)
@@ -109,8 +119,8 @@ public abstract class CustomFileProvider : AbstractVfsFileProvider
                     new IoStoreReader(file, stream[0], openContainerStreamFunc,
                             EIoStoreTocReadOptions.ReadDirectoryIndex, Versions)
                         { IsConcurrent = true, CustomEncryption = CustomEncryption };
-                if (reader.IsEncrypted && !_requiredKeys.ContainsKey(reader.Info.EncryptionKeyGuid))
-                    _requiredKeys[reader.Info.EncryptionKeyGuid] = null;
+                if (reader.IsEncrypted && !_requiredKeys.ContainsKey(reader.EncryptionKeyGuid))
+                    _requiredKeys[reader.EncryptionKeyGuid] = null;
                 _unloadedVfs[reader] = null;
             }
             catch (Exception e)
@@ -209,14 +219,14 @@ public abstract class CustomFileProvider : AbstractVfsFileProvider
             var ext = file.Extension.SubstringAfter('.');
             if (!file.Exists || string.IsNullOrEmpty(ext)) continue;
 
-            if (!GameFile.Ue4KnownExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            if (!GameFile.UeKnownExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
             {
                 RegisterFile(file);
             }
             else
             {
                 var osFile = new OsGameFile(directory, file, string.Empty, Versions);
-                if (IsCaseInsensitive) osFiles[osFile.Path.ToLowerInvariant()] = osFile;
+                if (_isCaseInsensitive) osFiles[osFile.Path.ToLowerInvariant()] = osFile;
                 else osFiles[osFile.Path] = osFile;
             }
         }

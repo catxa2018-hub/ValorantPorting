@@ -1,5 +1,5 @@
 ﻿# ValorantPorting [![Discord](https://discord.com/api/guilds/866821077769781249/widget.png?style=shield)](https://discord.com/invite/valorant3d)
-A free and open-source tool created to automate the Valorant porting process to Blender and Unreal Engine
+A free and open-source tool created to automate the Valorant porting process to Blender and Unreal Engine, altered by catxa2018 to support the UE5 version of Valorant.
 
 # Installation
 
@@ -41,11 +41,6 @@ dotnet publish ValorantPorting -c Release --no-self-contained -r win-x64 -o "./R
   
 * Restart Blender
 
-To build the Blender plugins from source, run BuildBlenderPlugins.bat.  If you'd prefer to zip them manually, copy the script from BlenderPlugins/PSA_PSK_Import/ into the ValorantPortingBlender (or ValorantPortingBlenderOctane) folder and then zip the entire folder.
-
-
-
-
 ### Unreal Engine
 * ***TBD***
 
@@ -55,3 +50,4 @@ To build the Blender plugins from source, run BuildBlenderPlugins.bat.  If you'd
 * https://github.com/djhaled
 * https://github.com/KaiserM21
 * https://github.com/Bmarquez1997
+* https://github.com/catxa2018-hub

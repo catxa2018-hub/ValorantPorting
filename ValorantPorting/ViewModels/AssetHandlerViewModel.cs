@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -79,16 +80,55 @@ public class AssetHandlerData
     public bool HasStarted { get; private set; }
     public Pauser PauseState { get; } = new();
 
+    // Some characters have 2 distinct underlying asset paths that both resolve to the same
+    // visible entry (same UI name/icon) - dedupe on that name so it only loads once.
+    private readonly ConcurrentDictionary<string, byte> _seenDisplayIds = new();
+
     public async Task Execute()
     {
         if (HasStarted) return;
         HasStarted = true;
+
+        var cue4ParseVm = AppVM.CUE4ParseVM;
+        if (cue4ParseVm is null || cue4ParseVm.AssetDataBuffers is null || cue4ParseVm.AssetDataBuffers.Count == 0)
+        {
+            AppLog.Warning("Asset handler could not initialize because no asset data buffers were available.");
+            return;
+        }
+
+        if (TargetCollection is null || ClassNames is null || IconGetter is null)
+        {
+            AppLog.Warning("Asset handler could not initialize because one or more required configuration values were missing.");
+            return;
+        }
+
         var items = new List<FAssetData>();
-        foreach (var variable in
-                 AppVM.CUE4ParseVM.AssetRegistry.PreallocatedAssetDataBuffers) //search for Classes in AssetRegistry
-        foreach (var tagsAndValue in variable.TagsAndValues)
-            if (ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key.PlainText == "PrimaryAssetType")
-                items.Add(variable);
+        var seenTypes = new HashSet<string>();
+        var addedPaths = new HashSet<string>();
+        foreach (var variable in cue4ParseVm.AssetDataBuffers)
+        {
+            if (variable is null || variable.TagsAndValues is null) continue;
+
+            foreach (var tagsAndValue in variable.TagsAndValues)
+            {
+                if (tagsAndValue.Key.PlainText == "PrimaryAssetType")
+                    seenTypes.Add(tagsAndValue.Value);
+
+                if (ClassNames.Contains(tagsAndValue.Value) && tagsAndValue.Key.PlainText == "PrimaryAssetType")
+                {
+                    if (addedPaths.Add(variable.ObjectPath))
+                        items.Add(variable);
+                }
+            }
+        }
+
+        if (items.Count == 0)
+        {
+            AppLog.Warning($"No items found for {string.Join(", ", ClassNames)}. Available PrimaryAssetType values: {string.Join(", ", seenTypes)}");
+        }
+
+        AppLog.Information($"{AssetType} handler found {items.Count} matching items.");
+
         await Parallel.ForEachAsync(items, async (data, token) => //load if found
         {
             await DoLoad(data);
@@ -104,15 +144,47 @@ public class AssetHandlerData
 
         if (firstTag.Contains("NPE") || firstTag.Contains("Random")) return;
 
-        actualAsset = await AppVM.CUE4ParseVM.Provider.TryLoadObjectAsync(firstTag);
+        try
+        {
+            actualAsset = AppVM.CUE4ParseVM.Provider.LoadPackageObject(firstTag);
+        }
+        catch
+        {
+            try
+            {
+                actualAsset = AppVM.CUE4ParseVM.Provider.LoadPackageObject(firstTag + "_C");
+            }
+            catch (Exception ex2)
+            {
+                AppLog.Warning($"[{AssetType}] LoadPackageObject failed even with _C fallback for: {firstTag}\n{ex2}");
+                return;
+            }
+        }
         if (actualAsset == null) return;
 
-        var uBlueprintGeneratedClass = actualAsset as UBlueprintGeneratedClass;
-        actualAsset = uBlueprintGeneratedClass.ClassDefaultObject.Load();
+        if (actualAsset is not UBlueprintGeneratedClass uBlueprintGeneratedClass)
+        {
+            AppLog.Warning($"[{AssetType}] Loaded asset was not a UBlueprintGeneratedClass for: {firstTag} (actual type: {actualAsset.GetType().Name})");
+            return;
+        }
+
+        var classDefaultObject = uBlueprintGeneratedClass.ClassDefaultObject?.Load();
+        if (classDefaultObject == null)
+        {
+            AppLog.Warning($"[{AssetType}] ClassDefaultObject was null/failed to load for: {firstTag}");
+            return;
+        }
+
+        actualAsset = classDefaultObject;
         var mainA = actualAsset;
 
-        if (actualAsset.TryGetValue(out UBlueprintGeneratedClass uiObject, "UIData"))
-            uiAsset = uiObject.ClassDefaultObject.Load();
+        if (actualAsset.TryGetValue(out UBlueprintGeneratedClass? uiObject, "UIData"))
+        {
+            var uiDefaultObject = uiObject?.ClassDefaultObject?.Load();
+            if (uiDefaultObject != null)
+                uiAsset = uiDefaultObject;
+        }
+
         // switch on asset type
         var loadable = "None";
         switch (AssetType)
@@ -121,21 +193,70 @@ public class AssetHandlerData
                 loadable = "Character";
                 break;
             case EAssetType.Weapon:
-                actualAsset.TryGetValue<UBlueprintGeneratedClass[]>(out var bGg, "Levels");
-                actualAsset = bGg[0].ClassDefaultObject.Load();
+            {
+                var hasLevels = actualAsset.TryGetValue<UBlueprintGeneratedClass[]>(out var bGg, "Levels");
+                if (!hasLevels)
+                {
+                    AppLog.Warning($"[Weapon] No 'Levels' property found for: {firstTag}");
+                    return;
+                }
+                if (bGg is not { Length: > 0 })
+                {
+                    AppLog.Warning($"[Weapon] 'Levels' property was empty for: {firstTag}");
+                    return;
+                }
+                var weaponDefaultObject = bGg[0]?.ClassDefaultObject?.Load();
+                if (weaponDefaultObject is null)
+                {
+                    AppLog.Warning($"[Weapon] Levels[0].ClassDefaultObject.Load() returned null for: {firstTag}");
+                    return;
+                }
+
+                actualAsset = weaponDefaultObject;
                 loadable = "None";
                 break;
+            }
             case EAssetType.GunBuddy:
-                actualAsset.TryGetValue<UBlueprintGeneratedClass[]>(out var bGb, "Levels");
-                actualAsset = bGb[0].ClassDefaultObject.Load();
+            {
+                if (actualAsset.TryGetValue<UBlueprintGeneratedClass[]>(out var bGb, "Levels") &&
+                    bGb is { Length: > 0 } &&
+                    bGb[0]?.ClassDefaultObject?.Load() is { } buddyDefaultObject)
+                {
+                    actualAsset = buddyDefaultObject;
+                }
+                else
+                {
+                    return;
+                }
+
                 loadable = "CharmAttachment";
                 break;
+            }
         }
 
-        if (actualAsset.TryGetValue(out UBlueprintGeneratedClass blueprintObject, loadable))
-            actualAsset = blueprintObject.ClassDefaultObject.Load();
+        if (loadable != "None")
+        {
+            if (actualAsset.TryGetValue(out UBlueprintGeneratedClass? blueprintObject, loadable))
+            {
+                var blueprintDefaultObject = blueprintObject?.ClassDefaultObject?.Load();
+                if (blueprintDefaultObject != null)
+                    actualAsset = blueprintDefaultObject;
+                else
+                    return;
+            }
+            else
+            {
+                return;
+            }
+        }
+
         var previewImage = IconGetter(uiAsset);
         if (previewImage is null) return;
+
+        var dedupeKey = uiAsset.Name;
+        if (!string.IsNullOrEmpty(dedupeKey) && !_seenDisplayIds.TryAdd(dedupeKey, 0))
+            return; // already added this one under a different asset path, skip the duplicate
+
         await Application.Current.Dispatcher.InvokeAsync(
             () => TargetCollection.Add(new AssetSelectorItem(actualAsset, uiAsset, mainA, previewImage, random)),
             DispatcherPriority.Background);

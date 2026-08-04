@@ -18,6 +18,7 @@ using CUE4Parse.UE4.Objects.Engine;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.Utils;
 using SkiaSharp;
+using ValorantPorting.AppUtils;
 
 namespace ValorantPorting.Export;
 
@@ -31,7 +32,8 @@ public static class ExportHelpers
         LodFormat = ELodFormat.AllLods,
         MeshFormat = EMeshFormat.ActorX,
         TextureFormat = ETextureFormat.Png,
-        ExportMorphTargets = false
+        ExportMorphTargets = false,
+        ExportMaterials = false
     };
     
     public static void GunBuddy(List<ExportPart> exportParts, UObject asset)
@@ -72,7 +74,7 @@ public static class ExportHelpers
         //CS Mesh
         if (AppVM.MainVM.CurrentAsset.MainAsset.TryGetValue(out UObject characterSelectFxc, "CharacterSelectFXC"))
         {
-            var exports = AppVM.CUE4ParseVM.Provider.LoadAllObjects(characterSelectFxc.GetPathName().Substring(0, characterSelectFxc.GetPathName().LastIndexOf(".")));
+            var exports = AppVM.CUE4ParseVM.Provider.LoadPackageObjects(characterSelectFxc.GetPathName().Substring(0, characterSelectFxc.GetPathName().LastIndexOf(".")));
             foreach (var export in exports)
             {
                 if (export.ExportType == "SkeletalMeshComponent" && export.Name == "SkeletalMesh_GEN_VARIABLE") components.Add(export);
@@ -107,24 +109,33 @@ public static class ExportHelpers
             if (levelTuple.Item2 != null) OverrideMaterials(levelTuple.Item2, exportParts.Last().OverrideMaterials);
         }
         //handle style materials for gun mesh
-        if (style != null && HandleStyle(style) != null)
+        var handledStyleGun = style != null ? HandleStyle(style) : null;
+        if (handledStyleGun != null)
             //get 3P overwrites for 1P gun because riot games ;-;
-            OverrideMaterials(HandleStyle(style).GetOrDefault("3p Material Overrides", Array.Empty<UMaterialInstanceConstant>()), exportParts.Last().StyleMaterials);
+            OverrideMaterials(handledStyleGun.GetOrDefault("3p Material Overrides", Array.Empty<UMaterialInstanceConstant>()), exportParts.Last().StyleMaterials);
         //mag mesh
         if (levelTuple.Item4 != null)
         {
             SMesh(levelTuple.Item4, exportParts);
-            if (levelTuple.Item3 != null) OverrideMaterials(levelTuple.Item2, exportParts.Last().OverrideMaterials);
+            if (levelTuple.Item2 != null) OverrideMaterials(levelTuple.Item2, exportParts.Last().OverrideMaterials);
         }
         else
         {
             SMesh(GetMagMesh(), exportParts);
-            if (levelTuple.Item3 != null) OverrideMaterials(levelTuple.Item2, exportParts.Last().OverrideMaterials);
+            if (levelTuple.Item2 != null) OverrideMaterials(levelTuple.Item2, exportParts.Last().OverrideMaterials);
         }
 
         //handle style materials for mag mesh
-        if (style != null && HandleStyle(style) != null)
-            OverrideMaterials(HandleStyle(style).GetOrDefault("1pMagazine MaterialOverrides", Array.Empty<UMaterialInstanceConstant>()), exportParts.Last().StyleMaterials);
+        var handledStyleMag = style != null ? HandleStyle(style) : null;
+        if (handledStyleMag != null)
+        {
+            var magOverrides = handledStyleMag.GetOrDefault("3pMagazineMaterial Overrides", Array.Empty<UMaterialInstanceConstant>());
+            if (magOverrides.Length == 0)
+                magOverrides = handledStyleMag.GetOrDefault("1pMagazine MaterialOverrides", Array.Empty<UMaterialInstanceConstant>());
+            if (magOverrides.Length == 0 && handledStyleGun != null)
+                magOverrides = handledStyleGun.GetOrDefault("3p Material Overrides", Array.Empty<UMaterialInstanceConstant>());
+            OverrideMaterials(magOverrides, exportParts.Last().StyleMaterials);
+        }
 
         //attach mag to gun body
         var attachMag = new ExportAttatchment();
@@ -138,6 +149,14 @@ public static class ExportHelpers
             var attachmentTuple = GetWeaponAttatchments(attachmentOverrides);
             for (var i = 0; i < attachmentTuple.Item2.Length; i++)
             {
+                // GetWeaponAttatchments always returns fixed-size-2 arrays even when a weapon only
+                // has one real attachment (e.g. Operator-class scopes with no silencer slot) - the
+                // unfilled slot has a null mesh and must be skipped entirely, or exportParts.Last()
+                // silently stays pointed at the previous real attachment and gets its materials
+                // overwritten by this phantom entry's fallback (confirmed via diagnostic log: the
+                // sniper scope's correct materials were immediately overwritten by the main body's).
+                if (attachmentTuple.Item2[i] == null) continue;
+
                 Mesh(attachmentTuple.Item2[i], exportParts);
                 var scope_tach = new ExportAttatchment();
                 scope_tach.BoneName = attachmentTuple.Item1[i];
@@ -145,15 +164,32 @@ public static class ExportHelpers
                 exportParts.First().Attatchments.Add(scope_tach);
                 if (attachmentTuple.Item3[i] != null) OverrideMaterials(attachmentTuple.Item3[i], exportParts.Last().OverrideMaterials);
                 
-                //handle attachment style mats
+                                //handle attachment style mats
                 if (style != null)
                 {
+                    bool foundAttachmentMats = false;
+                    
                     //scope, muzzle
-                    string[] matNames = { "3pMaterialOverrides", "1p MaterialOverrides" };
+                    string[] matNames = { "3p MaterialOverrides", "1p MaterialOverrides" };
                     foreach (var matName in matNames)
                     {
-                        if (GetStyleAttatchmentMats(style, matName) != null)
-                            OverrideMaterials(GetStyleAttatchmentMats(style, matName), exportParts.Last().StyleMaterials);
+                        var styleAttachmentMats = GetStyleAttatchmentMats(style, matName, attachmentTuple.Item1[i]);
+                        if (styleAttachmentMats != null)
+                        {
+                            OverrideMaterials(styleAttachmentMats, exportParts.Last().StyleMaterials);
+                            foundAttachmentMats = true;
+                        }
+                    }
+                    
+                    LogSilencerDiagnostic($"[call site] socket={attachmentTuple.Item1[i]}, mesh={exportParts.Last().MeshName}, foundAttachmentMats={foundAttachmentMats}, handledStyleGun null={handledStyleGun == null}");
+
+                    // Fallback: some skins store all chroma materials (gun + attachments) in the main chroma CDO
+                    if (!foundAttachmentMats && handledStyleGun != null)
+                    {
+                        var fallbackMats = handledStyleGun.GetOrDefault("3p Material Overrides", Array.Empty<UMaterialInstanceConstant>());
+                        LogSilencerDiagnostic($"[call site] fallback check for socket={attachmentTuple.Item1[i]}, fallbackMats.Length={fallbackMats.Length}");
+                        if (fallbackMats.Length > 0)
+                            OverrideMaterials(fallbackMats, exportParts.Last().StyleMaterials);
                     }
                 }
             }
@@ -188,7 +224,122 @@ public static class ExportHelpers
             if (cdoLo.TryGetValue(out localUob, "SkinAttachment"))
             {
                 var ready = localUob.ClassDefaultObject.Load();
-                ready.TryGetValue(out USkeletalMesh localMeshUsed, "Weapon 1P Cosmetic", "Weapon 1P", "NewMesh");
+                ready.TryGetValue(out USkeletalMesh cosmeticMesh, "Weapon 1P Cosmetic");
+                ready.TryGetValue(out USkeletalMesh actualWeaponMesh, "Weapon 1P");
+                ready.TryGetValue(out USkeletalMesh newMesh, "NewMesh");
+
+                // Default true = safe fallback (matches old baseline) if we can't read bone data at all.
+                bool cosmeticLooksLikeAWeapon = true;
+
+                // Real gun-mechanism bone names confirmed present on every tested weapon mesh
+                // (Cyberknight, Revolver Lv2 Edge, Daedalus) and absent on the Aquarium2 fish mesh.
+                // "Magazine_Main" (the original guess) never actually exists on any of these meshes -
+                // that's why both attempt 2a and 2b failed no matter which way the default was flipped.
+                string[] weaponIndicatorBones = { "Muzzle", "Mag_Holder", "Hammer", "Gun_Buddy", "Magazine_Extra" };
+
+                if (cosmeticMesh != null)
+                {
+                    var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                    var logPath = System.IO.Path.Combine(logDir, "bonecheck_diagnostics.log");
+                    try
+                    {
+                        System.IO.Directory.CreateDirectory(logDir);
+                        var sb = new System.Text.StringBuilder();
+                        sb.AppendLine($"--- {DateTime.Now:HH:mm:ss} ---");
+                        sb.AppendLine($"Mesh Name: {cosmeticMesh.Name}");
+
+                        var refSkeleton = cosmeticMesh.ReferenceSkeleton;
+                        if (refSkeleton == null)
+                        {
+                            sb.AppendLine("ReferenceSkeleton is null.");
+                        }
+                        else
+                        {
+                            var rsType = refSkeleton.GetType();
+                            sb.AppendLine($"ReferenceSkeleton CLR Type: {rsType.FullName}");
+                            sb.AppendLine("All members:");
+
+                            object boneArray = null;
+                            string boneArrayMemberName = null;
+
+                            foreach (var prop in rsType.GetProperties())
+                            {
+                                object val = null;
+                                try { val = prop.GetValue(refSkeleton); } catch { }
+                                var countStr = "";
+                                if (val is System.Collections.IEnumerable en && !(val is string))
+                                {
+                                    var count = 0;
+                                    foreach (var _ in en) count++;
+                                    countStr = $" (Count={count})";
+                                    if (boneArray == null && count > 0) { boneArray = val; boneArrayMemberName = prop.Name; }
+                                }
+                                sb.AppendLine($"  [property] {prop.Name} : {prop.PropertyType.Name}{countStr}");
+                            }
+                            foreach (var field in rsType.GetFields())
+                            {
+                                object val = null;
+                                try { val = field.GetValue(refSkeleton); } catch { }
+                                var countStr = "";
+                                if (val is System.Collections.IEnumerable en && !(val is string))
+                                {
+                                    var count = 0;
+                                    foreach (var _ in en) count++;
+                                    countStr = $" (Count={count})";
+                                    if (boneArray == null && count > 0) { boneArray = val; boneArrayMemberName = field.Name; }
+                                }
+                                sb.AppendLine($"  [field] {field.Name} : {field.FieldType.Name}{countStr}");
+                            }
+
+                            if (boneArray is System.Collections.IEnumerable boneList)
+                            {
+                                sb.AppendLine($"Dumping bone names from '{boneArrayMemberName}':");
+                                var boneNames = new System.Collections.Generic.List<string>();
+                                foreach (var boneInfo in boneList)
+                                {
+                                    if (boneInfo == null) continue;
+                                    var boneInfoType = boneInfo.GetType();
+                                    object nameMember = (object)boneInfoType.GetField("Name") ?? (object)boneInfoType.GetProperty("Name");
+                                    object nameValue = nameMember switch
+                                    {
+                                        System.Reflection.FieldInfo f => f.GetValue(boneInfo),
+                                        System.Reflection.PropertyInfo p => p.GetValue(boneInfo),
+                                        _ => null
+                                    };
+                                    string boneNameText = null;
+                                    if (nameValue != null)
+                                    {
+                                        var textProp = nameValue.GetType().GetProperty("Text");
+                                        boneNameText = textProp != null ? textProp.GetValue(nameValue)?.ToString() : nameValue.ToString();
+                                    }
+                                    boneNames.Add(boneNameText ?? "(null)");
+                                }
+                                sb.AppendLine("  " + string.Join(", ", boneNames));
+                                cosmeticLooksLikeAWeapon = boneNames.Any(n => weaponIndicatorBones.Contains(n, StringComparer.OrdinalIgnoreCase));
+                                sb.AppendLine($"  Matched a weapon-indicator bone: {cosmeticLooksLikeAWeapon}");
+                            }
+                            else
+                            {
+                                sb.AppendLine("Could not find any non-empty enumerable member to use as a bone array.");
+                            }
+                        }
+
+                        System.IO.File.AppendAllText(logPath, sb.ToString() + "\n");
+                    }
+                    catch (Exception ex)
+                    {
+                        try
+                        {
+                            System.IO.Directory.CreateDirectory(logDir);
+                            System.IO.File.AppendAllText(logPath, $"--- {DateTime.Now:HH:mm:ss} --- EXCEPTION: {ex}\n\n");
+                        }
+                        catch { }
+                    }
+                }
+
+                USkeletalMesh localMeshUsed = cosmeticLooksLikeAWeapon
+                    ? (cosmeticMesh ?? actualWeaponMesh ?? newMesh)
+                    : (actualWeaponMesh ?? newMesh ?? cosmeticMesh);
                 if (localMeshUsed != null) highestMeshUsed = localMeshUsed;
                 ready.TryGetValue(out UMaterialInstanceConstant[] localMatUsed, "1p MaterialOverrides");
                 if (localMatUsed != null) highestWeapMaterialUsed = localMatUsed;
@@ -207,14 +358,15 @@ public static class ExportHelpers
     public static USkeletalMesh GetBaseWeapon()
     {
         var mainAsset = AppVM.MainVM.CurrentAsset.MainAsset;
-        if (mainAsset.TryGetValue(out UBlueprintGeneratedClass equippable, "Equippable")) ;
+        if (mainAsset.TryGetValue(out UBlueprintGeneratedClass equippable, "Equippable"))
         {
             var classDefaultObject = equippable.ClassDefaultObject.Load();
             if (classDefaultObject.TryGetValue(out UBlueprintGeneratedClass localEqippable, "Equippable"))
             {
                 var loadedEquippable = localEqippable.ClassDefaultObject.Load();
-                if (loadedEquippable.TryGetValue(out UObject objectReturn, "Mesh1P"))
-                    return objectReturn.Get<USkeletalMesh>("SkeletalMesh");
+                if (loadedEquippable.TryGetValue(out UObject objectReturn, "Mesh1P") &&
+                    objectReturn.TryGetValue(out USkeletalMesh skeletalMesh, "SkeletalMesh"))
+                    return skeletalMesh;
             }
         }
         return null;
@@ -229,10 +381,10 @@ public static class ExportHelpers
             var classDefaultObject = equippable.ClassDefaultObject.Load();
             if (classDefaultObject.TryGetValue(out UObject localEquippable, "Equippable"))
             {
-                var mainObjectExports = AppVM.CUE4ParseVM.Provider.LoadAllObjects(localEquippable.GetPathName().Substring(0, localEquippable.GetPathName().LastIndexOf(".")));
+                var mainObjectExports = AppVM.CUE4ParseVM.Provider.LoadPackageObjects(localEquippable.GetPathName().Substring(0, localEquippable.GetPathName().LastIndexOf(".")));
                 foreach (var export in mainObjectExports)
-                    if (export.Name.Contains("Magazine_1P"))
-                        return export.Get<UStaticMesh>("StaticMesh");
+                    if (export.Name.Contains("Magazine_1P") && export.TryGetValue(out UStaticMesh staticMesh, "StaticMesh"))
+                        return staticMesh;
             }
         }
         return null;
@@ -254,7 +406,7 @@ public static class ExportHelpers
             var classDefaultObject = valueLoaded.ClassDefaultObject.Load();
 
             string[] scope = { "1pReflexMesh", "MaterialOverrides", "Reflex" };
-            string[] silencer = { "1p Mesh", "1p MaterialOverrides", "Barrel" };
+            string[] silencer = { "1p Mesh", "3p MaterialOverrides", "Barrel" };
             var currentAttatchList = new List<List<string>>();
             currentAttatchList.Add(new List<string>(scope));
             currentAttatchList.Add(new List<string>(silencer));
@@ -275,21 +427,115 @@ public static class ExportHelpers
         return Tuple.Create(fullSockets, meshes, fullOverrideMaterials, paramNames);
     }
 
-    public static UMaterialInstanceConstant[] GetStyleAttatchmentMats(UObject style, string paramName)
+    private static void LogSilencerDiagnostic(string line)
+    {
+        try
+        {
+            var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            System.IO.Directory.CreateDirectory(logDir);
+            var logPath = System.IO.Path.Combine(logDir, "silencer_diagnostics.log");
+            System.IO.File.AppendAllText(logPath, line + "\n");
+        }
+        catch { }
+    }
+
+    public static UMaterialInstanceConstant[] GetStyleAttatchmentMats(UObject style, string paramName, string socketName)
     {
         var bpGnCast = style as UBlueprintGeneratedClass;
         var styleClassDefaultObject = bpGnCast.ClassDefaultObject.Load();
-        if (styleClassDefaultObject.TryGetValue(out UScriptMap styleAttachmentOverrides, "AttachmentOverrides"))
-            //  loop 
+        
+        // Try the drilled chroma CDO first (matches HandleStyle()'s proven-correct precedence
+        // for the gun body itself); raw style CDO as fallback. The raw CDO can carry valid but
+        // wrong inherited/default attachment data that would otherwise match before the real
+        // chroma-specific data ever gets checked.
+        var sources = new List<UObject>();
+        if (styleClassDefaultObject.TryGetValue(out UBlueprintGeneratedClass chromaBp, "EquippableSkinChroma"))
+        {
+            var chromaCdo = chromaBp.ClassDefaultObject.Load();
+            if (chromaCdo != null)
+                sources.Add(chromaCdo);
+        }
+        sources.Add(styleClassDefaultObject);
+        
+        // Try multiple property name variants (skins use different naming conventions)
+        var paramNamesToTry = new List<string> { paramName };
+        if (paramName == "3p MaterialOverrides")
+        {
+            paramNamesToTry.Add("MaterialOverrides");
+            paramNamesToTry.Add("3p Material Overrides");
+        }
+        else if (paramName == "1p MaterialOverrides")
+        {
+            paramNamesToTry.Add("1p Material Overrides");
+        }
+        
+        LogSilencerDiagnostic($"--- {DateTime.Now:HH:mm:ss} --- GetStyleAttatchmentMats socketName={socketName}, paramName={paramName}, sources={sources.Count}");
+
+        foreach (var source in sources)
+        {
+            if (!source.TryGetValue(out UScriptMap styleAttachmentOverrides, "AttachmentOverrides"))
+            {
+                LogSilencerDiagnostic("  source has no AttachmentOverrides map, skipping.");
+                continue;
+            }
+
+            LogSilencerDiagnostic($"  source has AttachmentOverrides map with {styleAttachmentOverrides.Properties.Count} entries.");
+
             foreach (var scriptMapVariable in styleAttachmentOverrides.Properties)
             {
                 var scriptMapValue = (FSoftObjectPath)scriptMapVariable.Value.GenericValue;
                 var valueLoaded = (UBlueprintGeneratedClass)scriptMapValue.Load();
                 var classDefaultObject = valueLoaded.ClassDefaultObject.Load();
-                classDefaultObject.TryGetValue(out UMaterialInstanceConstant[] materials, paramName);
-                return materials;
-            }
 
+                try
+                {
+                    var propNames = new List<string>();
+                    foreach (var prop in classDefaultObject.Properties)
+                    {
+                        try
+                        {
+                            var nameObj = prop.Name;
+                            var textProp = nameObj.GetType().GetProperty("Text");
+                            propNames.Add(textProp != null ? textProp.GetValue(nameObj)?.ToString() : nameObj.ToString());
+                        }
+                        catch { propNames.Add("(unreadable)"); }
+                    }
+                    LogSilencerDiagnostic($"    entry properties: {string.Join(", ", propNames)}");
+                }
+                catch (Exception ex)
+                {
+                    LogSilencerDiagnostic($"    entry property dump failed: {ex.Message}");
+                }
+
+                // Match attachment by socket name
+                string[] scope = { "1pReflexMesh", "MaterialOverrides", "Reflex" };
+                string[] silencer = { "1p Mesh", "3p MaterialOverrides", "Barrel" };
+                var checkList = new List<string[]> { scope, silencer };
+                
+                foreach (var check in checkList)
+                {
+                    classDefaultObject.TryGetValue(out USkeletalMesh mesh, check[0]);
+                    LogSilencerDiagnostic($"      check[{check[2]}]: has '{check[0]}' mesh = {mesh != null}");
+                    // Mesh presence is informational only — a chroma-only override entry can
+                    // carry valid material data with no mesh reference at all (confirmed via
+                    // diagnostic log on Gaia/Ashen), so it must not gate the material lookup.
+                    if (check[2] == socketName)
+                    {
+                        foreach (var tryParamName in paramNamesToTry)
+                        {
+                            classDefaultObject.TryGetValue(out UMaterialInstanceConstant[] materials, tryParamName);
+                            if (materials != null && materials.Length > 0)
+                            {
+                                LogSilencerDiagnostic($"      MATCHED via '{tryParamName}', {materials.Length} materials.");
+                                return materials;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        LogSilencerDiagnostic("  No match found in GetStyleAttatchmentMats, returning null (fallback path may trigger).");
         return null;
     }
     
@@ -378,28 +624,38 @@ public static class ExportHelpers
 
     public static void OverrideMaterials(UMaterialInstanceConstant[] overrides, List<ExportMaterial> exportMaterials)
     {
+        if (overrides is null) return;
         for (var i = 0; i < overrides.Length; i++)
         {
             var material = overrides[i];
-            var exportMaterial = new ExportMaterial
-            {
-                MaterialName = material.Name,
-                SlotIndex = i,
-                MaterialNameToSwap = material.GetOrDefault<FSoftObjectPath>("MaterialToSwap").AssetPathName.PlainText
-                    .SubstringAfterLast(".")
-            };
+            if (material is null) continue;
 
-            if (material is UMaterialInstanceConstant materialInstance)
+            try
             {
-                var (textures, scalars, vectors) = MaterialParameters(materialInstance);
-                exportMaterial.Textures = textures;
-                exportMaterial.Scalars = scalars;
-                exportMaterial.Vectors = vectors;
-                if(material.Parent != null)
-                    exportMaterial.ParentName = material.Parent.Name;
+                var swapPath = material.GetOrDefault<FSoftObjectPath>("MaterialToSwap").AssetPathName.PlainText;
+                var exportMaterial = new ExportMaterial
+                {
+                    MaterialName = material.Name,
+                    SlotIndex = i,
+                    MaterialNameToSwap = string.IsNullOrEmpty(swapPath) ? string.Empty : swapPath.SubstringAfterLast(".")
+                };
+
+                if (material is UMaterialInstanceConstant materialInstance)
+                {
+                    var (textures, scalars, vectors) = MaterialParameters(materialInstance);
+                    exportMaterial.Textures = textures;
+                    exportMaterial.Scalars = scalars;
+                    exportMaterial.Vectors = vectors;
+                    if (material.Parent != null)
+                        exportMaterial.ParentName = material.Parent.Name;
+                }
+
+                exportMaterials.Add(exportMaterial);
             }
-
-            exportMaterials.Add(exportMaterial);
+            catch (Exception ex)
+            {
+                AppLog.Warning($"Skipped a material override due to an error: {ex.Message}");
+            }
         }
     }
 
@@ -457,7 +713,7 @@ public static class ExportHelpers
                         var path = GetExportPath(obj, "psk");
                         if (File.Exists(path)) return;
 
-                        var exporter = new MeshExporter(skeletalMesh, ExportOptions, false);
+                        var exporter = new MeshExporter(skeletalMesh, ExportOptions);
                         string SavedFilePath;
                         exporter.TryWriteToDir(App.AssetsFolder, out _, out SavedFilePath);
                         break;
@@ -468,7 +724,7 @@ public static class ExportHelpers
                         var path = GetExportPath(obj, "pskx");
                         if (File.Exists(path)) return;
 
-                        var exporter = new MeshExporter(staticMesh, ExportOptions, false);
+                        var exporter = new MeshExporter(staticMesh, ExportOptions);
                         string SavedFilePath;
                         exporter.TryWriteToDir(App.AssetsFolder, out _, out SavedFilePath);
                         break;
