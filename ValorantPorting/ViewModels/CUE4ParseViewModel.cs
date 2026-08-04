@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CUE4Parse.Encryption.Aes;
+using CUE4Parse.MappingsProvider;
 using CUE4Parse.UE4.AssetRegistry;
 using CUE4Parse.UE4.AssetRegistry.Objects;
 using CUE4Parse.UE4.Versions;
@@ -16,7 +17,21 @@ namespace ValorantPorting.ViewModels;
 
 public class CUE4ParseViewModel : ObservableObject
 {
-    public static readonly VersionContainer Version = new(EGame.GAME_Valorant);
+    public static readonly VersionContainer Version = new(EGame.GAME_UE5_3);
+
+    private static readonly string MappingsPath = FindMappingsFile();
+
+    private static string FindMappingsFile()
+    {
+        var mappingsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Mappings");
+        if (Directory.Exists(mappingsDir))
+        {
+            var usmapFiles = Directory.GetFiles(mappingsDir, "*.usmap");
+            if (usmapFiles.Length > 0) return usmapFiles[0];
+        }
+        return Path.Combine(mappingsDir, "VALORANT_13_00_zs.usmap");
+    }
+
     public readonly List<FAssetData> AssetDataBuffers = new();
     public readonly ValorantPortingFileProvider Provider;
 
@@ -43,6 +58,16 @@ public class CUE4ParseViewModel : ObservableObject
     public async Task Initialize()
     {
         if (Provider is null) return;
+
+        if (!File.Exists(MappingsPath))
+        {
+            AppLog.Warning(
+                $"Mappings file not found at \"{MappingsPath}\". UE5 Valorant assets will fail to parse without it.");
+        }
+        else
+        {
+            Provider.MappingsContainer = new FileUsmapTypeMappingsProvider(MappingsPath);
+        }
 
         var oodlePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, CUE4Parse.Compression.OodleHelper.OODLE_DLL_NAME);
         if (!File.Exists(oodlePath))
