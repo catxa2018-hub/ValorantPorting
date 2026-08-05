@@ -448,11 +448,16 @@ def register():
 
     def handler():
         if import_event.is_set():
-            import_response(server.data)
+            try:
+                import_response(server.data)
+            except Exception as e:
+                Log.error(f"Import failed, but the listener will keep running: {e}")
+                import traceback
+                traceback.print_exc()
             import_event.clear()
         return 0.01
 
-    bpy.app.timers.register(handler)
+    bpy.app.timers.register(handler, persistent=True)
 
 
 def unregister():
