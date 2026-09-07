@@ -735,11 +735,10 @@ public static class ExportHelpers
                         if (File.Exists(path)) return;
                         Directory.CreateDirectory(path.Replace('\\', '/').SubstringBeforeLast('/'));
 
-                        using var bitmap = texture.Decode(texture.GetFirstMip());
-                        using var data = bitmap?.Encode(SKEncodedImageFormat.Png, 100);
-
-                        if (data is null) return;
-                        File.WriteAllBytes(path, data.ToArray());
+                        var cTexture = texture.Decode(texture.GetFirstMip());
+                        if (cTexture is null) return;
+                        var imageData = cTexture.Encode(ETextureFormat.Png, false, out _);
+                        File.WriteAllBytes(path, imageData);
                         break;
                     }
                 }
