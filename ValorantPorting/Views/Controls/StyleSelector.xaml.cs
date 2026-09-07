@@ -21,7 +21,10 @@ public partial class StyleSelector
             var uiData = options[i];
             uiData.TryGetValue(out FText channel, "DisplayName");
             if (!uiData.TryGetValue(out UTexture2D previewTexture, "Swatch")) return;
-            var previewBitmap = previewTexture.Decode();
+            var previewCTexture = previewTexture.Decode();
+            if (previewCTexture is null) continue;
+            var previewImageData = previewCTexture.Encode(ETextureFormat.Png, false, out _);
+            var previewBitmap = SKBitmap.Decode(previewImageData);
             if (previewBitmap is null) continue;
 
             var fullBitmap = new SKBitmap(previewBitmap.Width, previewBitmap.Height, previewBitmap.ColorType,
