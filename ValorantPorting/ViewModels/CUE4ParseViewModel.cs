@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CUE4Parse.MappingsProvider.Usmap;
 using CUE4Parse.Encryption.Aes;
 using CUE4Parse.MappingsProvider;
 using CUE4Parse.UE4.AssetRegistry;
@@ -86,27 +87,18 @@ public class CUE4ParseViewModel : ObservableObject
         }
         else
         {
-            Provider.MappingsContainer = new FileUsmapTypeMappingsProvider(MappingsPath);
+            var mappingsProvider = new CustomUsmapTypeMappingsProvider();
+            mappingsProvider.Load(MappingsPath);
+            Provider.MappingsContainer = mappingsProvider;
         }
 
-        var oodlePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, CUE4Parse.Compression.OodleHelper.OODLE_DLL_NAME);
-        if (!File.Exists(oodlePath))
+        try
         {
-            AppLog.Information("Oodle DLL not found locally, downloading a known-good copy from GitHub...");
-            using var oodleHttpClient = new System.Net.Http.HttpClient();
-            var downloaded = CUE4Parse.Compression.OodleHelper.DownloadOodleDllFromOodleUEAsync(oodleHttpClient, oodlePath).GetAwaiter().GetResult();
-            if (!downloaded)
-            {
-                AppLog.Warning("Automatic Oodle download from GitHub failed.");
-            }
+            await CUE4Parse.Compression.OodleHelper.InitializeAsync();
         }
-        if (File.Exists(oodlePath))
+        catch (Exception ex)
         {
-            CUE4Parse.Compression.OodleHelper.Initialize(oodlePath);
-        }
-        else
-        {
-            AppLog.Warning($"Oodle DLL could not be found or downloaded to \"{oodlePath}\". Compressed assets will fail to load.");
+            AppLog.Warning($"Oodle initialization failed: {ex.Message}. Compressed assets will fail to load.");
         }
         await InitializeProvider();
         await InitializeKeys();
@@ -154,4 +146,25 @@ public class CUE4ParseViewModel : ObservableObject
             }
         }
     }
+    public class CustomUsmapTypeMappingsProvider : CUE4Parse.MappingsProvider.AbstractTypeMappingsProvider
+{
+    private string? _path;
+    public override CUE4Parse.MappingsProvider.TypeMappings? MappingsForGame { get; protected set; }
+
+    public override void Load(string path, StringComparer? comparer = null)
+    {
+        _path = path;
+        MappingsForGame = new UsmapParser(path).Mappings;
+    }
+
+    public override void Load(byte[] bytes, StringComparer? comparer = null)
+    {
+        MappingsForGame = new UsmapParser(bytes).Mappings;
+    }
+
+    public override void Reload()
+    {
+        if (_path != null) Load(_path);
+    }
+}
 }
