@@ -21,8 +21,8 @@ public class CUE4ParseViewModel : ObservableObject
 
     private static readonly string MappingsPath = FindMappingsFile();
 
-    // Update this URL whenever Valorant patches and the mappings go stale.
-    private const string MappingsDownloadUrl = "https://data.uedb.dev/mappings/68c7964faa9ff725d91c8302/VALORANT_13.02_zs.usmap";
+        // Update this URL whenever Valorant patches and the mappings go stale.
+    private const string MappingsDownloadUrl = "https://data.uedb.dev/mappings/68c7964faa9ff725d91c8302/VALORANT_13.05_zs.usmap";
 
     private static string FindMappingsFile()
     {
@@ -32,7 +32,7 @@ public class CUE4ParseViewModel : ObservableObject
             var usmapFiles = Directory.GetFiles(mappingsDir, "*.usmap");
             if (usmapFiles.Length > 0) return usmapFiles[0];
         }
-        return Path.Combine(mappingsDir, "VALORANT_13_00_zs.usmap");
+        return Path.Combine(mappingsDir, "VALORANT_13_05_zs.usmap");
     }
 
     public readonly List<FAssetData> AssetDataBuffers = new();
