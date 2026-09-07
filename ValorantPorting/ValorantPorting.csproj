@@ -21,8 +21,8 @@
         <PackageReference Include="YamlDotNet.NetCore" Version="1.0.0"/>
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="..\CUE4Parse\CUE4Parse-Conversion\CUE4Parse-Conversion.csproj"/>
-        <ProjectReference Include="..\CUE4Parse\CUE4Parse\CUE4Parse.csproj"/>
+        <PackageReference Include="CUE4Parse" Version="1.2.2"/>
+        <PackageReference Include="CUE4Parse-Conversion" Version="1.2.2"/>
     </ItemGroup>
     <ItemGroup>
         <Resource Include="Resources\Backpack.png"/>
