@@ -136,18 +136,10 @@ public class CUE4ParseViewModel : ObservableObject
             AppLog.Warning($"Oodle initialization failed: {ex.Message}. Compressed assets will fail to load.");
         }
 
-        try
-        {
-            var warmup = new byte[16];
-            CUE4Parse_Conversion.Textures.BC.Detex.DecodeDetexLinear(
-                warmup, 4, 4, false,
-                CUE4Parse_Conversion.Textures.BC.DetexTextureFormat.DETEX_TEXTURE_FORMAT_BPTC,
-                CUE4Parse_Conversion.Textures.BC.DetexPixelFormat.DETEX_PIXEL_FORMAT_RGBA8);
-        }
-        catch (Exception ex)
-        {
-            AppLog.Warning($"Detex warm-up failed: {ex.Message}");
-        }
+        // Use the library's built-in pure C# texture decoder for BC7/BC6H/ETC-compressed
+        // textures instead of the native Detex library. Nothing to load, nothing to
+        // initialize, nothing that can fail with "not initialized".
+        CUE4Parse_Conversion.Textures.TextureDecoder.UseAssetRipperTextureDecoder = true;
 
         await InitializeProvider();
         await InitializeKeys();
