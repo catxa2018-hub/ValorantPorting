@@ -25,7 +25,6 @@ namespace ValorantPorting.Export;
 public static class ExportHelpers
 {
     public static readonly List<Task> Tasks = new();
-    private static readonly object TextureDecodeLock = new();
 
     private static readonly ExporterOptions ExportOptions = new()
     {
@@ -736,11 +735,7 @@ public static class ExportHelpers
                         if (File.Exists(path)) return;
                         Directory.CreateDirectory(path.Replace('\\', '/').SubstringBeforeLast('/'));
 
-                        SKBitmap cTexture;
-                        lock (TextureDecodeLock)
-                        {
-                            cTexture = texture.Decode(texture.GetFirstMip());
-                        }
+                        var cTexture = texture.Decode(texture.GetFirstMip());
                         if (cTexture is null) return;
                         var imageData = cTexture.Encode(ETextureFormat.Png, false, out _);
                         File.WriteAllBytes(path, imageData);
