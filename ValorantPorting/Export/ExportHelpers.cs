@@ -547,7 +547,7 @@ public static class ExportHelpers
 
         var exportPart = new ExportPart();
         exportPart.MeshPath = skeletalMesh.GetPathName();
-        exportPart.MeshName = skeletalMesh.Name + "_LOD0.ao";
+        exportPart.MeshName = skeletalMesh.Name + ".ao";
         Save(skeletalMesh);
 
         var sections = convertedMesh.LODs[0].Sections;
@@ -588,7 +588,7 @@ public static class ExportHelpers
         if (convertedMesh.LODs.Count <= 0) return -1;
         var exportPart = new ExportPart();
         exportPart.MeshPath = staticMesh.GetPathName();
-        exportPart.MeshName = staticMesh.Name + "_LOD0.mo";
+        exportPart.MeshName = staticMesh.Name + ".mo";
         Save(staticMesh);
 
         var sections = convertedMesh.LODs[0].Sections;
