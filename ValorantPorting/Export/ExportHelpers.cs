@@ -419,6 +419,16 @@ public static class ExportHelpers
                 var currentAttach = currentAttatchList[i];
                 classDefaultObject.TryGetValue(out USkeletalMesh localMesh, currentAttach[0]);
                 classDefaultObject.TryGetValue(out UMaterialInstanceConstant[] localmat, currentAttach[1]);
+
+                if (localMesh == null)
+                {
+                    var parentClass = valueLoaded.SuperStruct?.Load<UBlueprintGeneratedClass>();
+                    var parentCdo = parentClass?.ClassDefaultObject?.Load();
+                    LogSilencerDiagnostic($"[GetWeaponAttatchments] '{currentAttach[0]}' missing on leaf CDO {classDefaultObject.Name}. " +
+                        $"Parent class={parentClass?.Name ?? "null"}, parent CDO={parentCdo?.Name ?? "null"}, " +
+                        $"parent properties=" + (parentCdo != null ? string.Join(", ", parentCdo.Properties.Select(p => p.Name.Text)) : "n/a"));
+                }
+
                 if (localMesh == null) continue;
                 if (meshes[i] != null)
                 {
