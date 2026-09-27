@@ -1,4 +1,4 @@
 [submodule "CUE4Parse"]
 	path = CUE4Parse
-	url = https://github.com/FabianFG/CUE4Parse.git
-	branch = proposal/prop-flag-dict
+	url = https://github.com/catxa2018-hub/CUE4Parse.git
+	branch = master
