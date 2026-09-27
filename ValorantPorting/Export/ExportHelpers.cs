@@ -420,6 +420,11 @@ public static class ExportHelpers
                 classDefaultObject.TryGetValue(out USkeletalMesh localMesh, currentAttach[0]);
                 classDefaultObject.TryGetValue(out UMaterialInstanceConstant[] localmat, currentAttach[1]);
                 if (localMesh == null) continue;
+                if (meshes[i] != null)
+                {
+                    LogSilencerDiagnostic($"[GetWeaponAttatchments] OVERWRITING slot {i} ({currentAttach[2]}): " +
+                        $"'{meshes[i].Name}' (from CDO {classDefaultObject.Name}'s predecessor) -> '{localMesh.Name}'");
+                }
                 fullSockets[i] = currentAttach[2];
                 meshes[i] = localMesh;
                 fullOverrideMaterials[i] = localmat;
