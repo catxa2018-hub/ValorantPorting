@@ -96,6 +96,8 @@ public static class ExportHelpers
     public static void Weapon(List<ExportPart> exportParts, UObject style)
     {
         var mainAsset = AppVM.MainVM.CurrentAsset.MainAsset;
+        LogSilencerDiagnostic($"[Weapon] mainAsset={mainAsset.Name}, properties=" +
+            string.Join(", ", mainAsset.Properties.Select(p => p.Name.Text)));
         var levelTuple = GetHighestLevel();
         //gun mesh
         if (levelTuple.Item1 != null)
