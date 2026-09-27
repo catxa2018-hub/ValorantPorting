@@ -737,8 +737,8 @@ public static class ExportHelpers
 
                         var cTexture = texture.Decode(texture.GetFirstMip());
                         if (cTexture is null) return;
-                        var imageData = cTexture.Encode(ETextureFormat.Png, false, out _);
-                        File.WriteAllBytes(path, imageData);
+                        var imageData = cTexture.Encode(ETextureFormat.Png, 100);
+                        File.WriteAllBytes(path, imageData.ToArray());
                         break;
                     }
                 }

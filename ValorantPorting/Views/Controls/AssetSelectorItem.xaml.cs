@@ -32,7 +32,7 @@ public partial class AssetSelectorItem : IExportableAsset
 
         var previewCTexture = previewTexture.Decode();
         if (previewCTexture is null) return;
-        var previewImageData = previewCTexture.Encode(ETextureFormat.Png, false, out _);
+        var previewImageData = previewCTexture.Encode(ETextureFormat.Png, 100).ToArray();
         var iconBitmap = SKBitmap.Decode(previewImageData);
         if (iconBitmap is null) return;
         IconBitmap = iconBitmap;

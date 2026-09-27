@@ -23,7 +23,7 @@ public partial class StyleSelector
             if (!uiData.TryGetValue(out UTexture2D previewTexture, "Swatch")) return;
             var previewCTexture = previewTexture.Decode();
             if (previewCTexture is null) continue;
-            var previewImageData = previewCTexture.Encode(ETextureFormat.Png, false, out _);
+            var previewImageData = previewCTexture.Encode(ETextureFormat.Png, 100).ToArray();
             var previewBitmap = SKBitmap.Decode(previewImageData);
             if (previewBitmap is null) continue;
 
