@@ -405,6 +405,9 @@ public static class ExportHelpers
             var valueLoaded = (UBlueprintGeneratedClass)scriptMapValue.Load();
             var classDefaultObject = valueLoaded.ClassDefaultObject.Load();
 
+            LogSilencerDiagnostic($"[GetWeaponAttatchments] CDO={classDefaultObject.Name}, properties=" +
+                string.Join(", ", classDefaultObject.Properties.Select(p => p.Name.Text)));
+
             string[] scope = { "1pReflexMesh", "MaterialOverrides", "Reflex" };
             string[] silencer = { "1p Mesh", "3p MaterialOverrides", "Barrel" };
             var currentAttatchList = new List<List<string>>();
