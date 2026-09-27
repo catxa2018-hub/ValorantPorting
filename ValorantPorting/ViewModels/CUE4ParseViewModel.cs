@@ -195,15 +195,15 @@ public class CUE4ParseViewModel : ObservableObject
     private string? _path;
     public override CUE4Parse.MappingsProvider.TypeMappings? MappingsForGame { get; protected set; }
 
-    public override void Load(string path)
+    public override void Load(string path, StringComparer? comparer = null)
     {
         _path = path;
-        MappingsForGame = new UsmapParser(path).Mappings;
+        MappingsForGame = new UsmapParser(path, comparer: comparer).Mappings;
     }
 
-    public override void Load(byte[] bytes)
+    public override void Load(byte[] bytes, StringComparer? comparer = null)
     {
-        MappingsForGame = new UsmapParser(bytes).Mappings;
+        MappingsForGame = new UsmapParser(bytes, comparer: comparer).Mappings;
     }
 
     public override void Reload()

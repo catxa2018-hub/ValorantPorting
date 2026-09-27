@@ -2,6 +2,7 @@
 using System.Text.RegularExpressions;
 using System.Windows.Media.Imaging;
 using CUE4Parse_Conversion.Textures;
+using CUE4Parse_Conversion.Options;
 using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.UE4.Assets.Exports.Texture;
 using CUE4Parse.UE4.Objects.Core.i18N;
@@ -32,7 +33,7 @@ public partial class AssetSelectorItem : IExportableAsset
 
         var previewCTexture = previewTexture.Decode();
         if (previewCTexture is null) return;
-        var previewImageData = previewCTexture.Encode(ETextureFormat.Png, 100).ToArray();
+        var previewImageData = previewCTexture.Encode(ETextureFormat.Png, false, out _);
         var iconBitmap = SKBitmap.Decode(previewImageData);
         if (iconBitmap is null) return;
         IconBitmap = iconBitmap;
