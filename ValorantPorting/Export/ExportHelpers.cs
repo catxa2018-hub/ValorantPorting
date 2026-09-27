@@ -697,7 +697,7 @@ public static class ExportHelpers
             vectors.Add(new VectorParameter(parameter.ParameterInfo.Name.PlainText, parameter.ParameterValue.Value));
         }
 
-        if (materialInstance.Parent != null && materialInstance.Parent is UMaterialInstanceConstant parent)
+        if (materialInstance.Parent != null && materialInstance.Parent.TryLoad(out UMaterialInstanceConstant parent))
             ParentMaterialInstanceParameters(parent, textures, scalars, vectors);
     }
 

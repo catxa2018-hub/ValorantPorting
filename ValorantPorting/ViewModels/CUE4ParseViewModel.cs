@@ -129,10 +129,7 @@ public class CUE4ParseViewModel : ObservableObject
 
         try
         {
-            var oodlePath = CUE4Parse.Compression.OodleHelper.OODLE_DLL_NAME;
-            if (!File.Exists(oodlePath))
-                await CUE4Parse.Compression.OodleHelper.DownloadOodleDllAsync(oodlePath);
-            CUE4Parse.Compression.OodleHelper.Initialize(oodlePath);
+            await CUE4Parse.Compression.OodleHelper.InitializeAsync();
         }
         catch (Exception ex)
         {
